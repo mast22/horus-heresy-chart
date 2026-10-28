@@ -1,0 +1,7 @@
+# Python libraries used by the classifiers in this folder.
+# Swift scripts use the system Vision framework and need no pip packages.
+# Install with: python3 -m pip install --user -r ocr/requirements.txt
+numpy==2.5.4
+scipy==1.18.1
+scikit-image==0.26.0
+pillow==12.3.0
