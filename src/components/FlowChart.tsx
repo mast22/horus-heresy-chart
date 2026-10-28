@@ -13,7 +13,8 @@ import {
   ReactFlowProvider,
   useReactFlow,
 } from "@xyflow/react";
-import { type CSSProperties, useEffect } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import "@xyflow/react/dist/style.css";
 
 import {
@@ -21,6 +22,16 @@ import {
   type ChartWork,
   type Connection,
 } from "../flow/chart";
+import {
+  chartControlConfig,
+  closedSidebar,
+  closeLegend,
+  initialLegend,
+  openLegend,
+  SIDEBAR_WIDTH_FRACTION,
+  toggleWorkSidebar,
+  workSelection,
+} from "../site/ui-state";
 
 type WorkData = {
   title: string;
@@ -242,6 +253,8 @@ function chartNodes(): Node[] {
     style: { width: work.w, height: work.h },
     draggable: false,
     connectable: false,
+    // Clicks on a non-draggable node pan the canvas unless the node opts out.
+    className: "nopan",
     zIndex: work.kind === "shortcut" ? 3 : 2,
   }));
   return [...zoneNodes, ...workNodes];
@@ -266,6 +279,9 @@ function chartEdges(): Edge[] {
 
 const nodes = chartNodes();
 const edges = chartEdges();
+const worksById = new Map(
+  buildChartGraph().works.map((work) => [work.id, work]),
+);
 
 function FitViewOnMount() {
   const { fitView } = useReactFlow();
@@ -278,29 +294,112 @@ function FitViewOnMount() {
 }
 
 export default function FlowChart() {
+  const [sidebar, setSidebar] = useState(closedSidebar);
+  const [legend, setLegend] = useState(initialLegend);
+  const interactive = chartControlConfig.interactionEnabled;
+
   return (
-    <div className="flow-root">
-      <ReactFlowProvider>
-        <ReactFlow
-          defaultNodes={nodes}
-          defaultEdges={edges}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.04, duration: 0 }}
-          minZoom={0.02}
-          maxZoom={1.5}
-          colorMode="light"
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-          proOptions={{ hideAttribution: true }}
-        >
-          <FitViewOnMount />
-          <Controls />
-          <Background />
-        </ReactFlow>
-      </ReactFlowProvider>
+    <div
+      className="chart-shell"
+      style={
+        {
+          "--work-sidebar-width": `${SIDEBAR_WIDTH_FRACTION * 100}vw`,
+        } as CSSProperties
+      }
+    >
+      <div className="flow-root">
+        <ReactFlowProvider>
+          <ReactFlow
+            defaultNodes={nodes}
+            defaultEdges={edges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.04, duration: 0 }}
+            minZoom={0.02}
+            maxZoom={1.5}
+            colorMode="light"
+            nodesDraggable={chartControlConfig.nodesDraggable}
+            nodesConnectable={chartControlConfig.nodesConnectable}
+            elementsSelectable={false}
+            panOnDrag={interactive && chartControlConfig.panOnDrag}
+            zoomOnScroll={interactive && chartControlConfig.zoomOnScroll}
+            zoomOnPinch={interactive && chartControlConfig.zoomOnPinch}
+            zoomOnDoubleClick={
+              interactive && chartControlConfig.zoomOnDoubleClick
+            }
+            proOptions={{ hideAttribution: true }}
+            onNodeClick={(_event, node) => {
+              if (node.type !== "work") {
+                return;
+              }
+              const work = worksById.get(node.id);
+              if (!work) {
+                return;
+              }
+              setSidebar((current) =>
+                toggleWorkSidebar(current, workSelection(work)),
+              );
+            }}
+          >
+            <FitViewOnMount />
+            <Controls
+              showInteractive={chartControlConfig.showInteractivityToggle}
+              orientation="vertical"
+            >
+              <button
+                type="button"
+                className="legend-button"
+                onClick={() => setLegend(openLegend())}
+              >
+                Legend
+              </button>
+            </Controls>
+            <Background />
+          </ReactFlow>
+        </ReactFlowProvider>
+      </div>
+      <aside
+        className={sidebar.open ? "work-sidebar is-open" : "work-sidebar"}
+        aria-hidden={sidebar.open ? undefined : true}
+        data-entrance={sidebar.entrance}
+        data-width-fraction={sidebar.widthFraction}
+        data-open={sidebar.open ? "true" : "false"}
+      >
+        <div className="work-sidebar-panel">
+          {sidebar.open ? (
+            <>
+              <h2 className="sidebar-book">{sidebar.bookName}</h2>
+              <p className="sidebar-author">
+                <span className="sidebar-author-label">Author</span>
+                <span className="sidebar-author-value">{sidebar.author}</span>
+              </p>
+            </>
+          ) : null}
+        </div>
+      </aside>
+      {legend.open
+        ? createPortal(
+            <div
+              className="legend-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Legend"
+            >
+              <div className="legend-dialog">
+                <div className="legend-body">{legend.body}</div>
+                <button
+                  type="button"
+                  className="legend-close"
+                  onClick={() => setLegend(closeLegend())}
+                >
+                  Close
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
