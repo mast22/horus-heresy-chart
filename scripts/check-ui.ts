@@ -1,0 +1,334 @@
+import { readFileSync } from "node:fs";
+
+import { buildChartGraph } from "../src/flow/chart.ts";
+import {
+  creditPageBody,
+  extractPageCopy,
+  howToPageBody,
+  renderSectionHtml,
+} from "../src/site/copy.ts";
+import { navLinks, SITE_TITLE } from "../src/site/nav.ts";
+import {
+  chartControlConfig,
+  closedSidebar,
+  closeLegend,
+  initialLegend,
+  openLegend,
+  SIDEBAR_ENTRANCE,
+  SIDEBAR_WIDTH_FRACTION,
+  toggleWorkSidebar,
+  workAuthor,
+  workSelection,
+} from "../src/site/ui-state.ts";
+
+const lines: string[] = [];
+const failures: string[] = [];
+
+function check(name: string, ok: boolean, detail: string) {
+  lines.push(`${ok ? "PASS" : "FAIL"} ${name}: ${detail}`);
+  if (!ok) {
+    failures.push(name);
+  }
+}
+
+function headingNames(markdown: string): string[] {
+  return markdown.split(/\r?\n/).flatMap((line) => {
+    const match = /^(#{1,6})[ \t]+(.+?)\s*$/.exec(line);
+    return match ? [match[2].trim().replace(/\s+/g, " ")] : [];
+  });
+}
+
+function hasHeading(markdown: string, pattern: RegExp): boolean {
+  return headingNames(markdown).some((name) => pattern.test(name));
+}
+
+const sample = `# Preamble
+
+Keep this note.
+
+# Credit
+
+This flowchart is fanmade.
+
+# Games Workshop
+
+Still part of credit.
+
+# Original Creators
+
+Made by Nico.
+
+# How to use this chart
+
+Follow the arrows first.
+
+# Leftover
+
+Also keep.
+`;
+
+const sampleCopy = extractPageCopy(sample);
+check(
+  "sample credit body",
+  sampleCopy.credit.includes("This flowchart is fanmade.") &&
+    sampleCopy.credit.includes("Still part of credit.") &&
+    sampleCopy.credit.includes("Made by Nico.") &&
+    sampleCopy.credit.includes("# Credit") &&
+    sampleCopy.credit.includes("# Original Creators") &&
+    !sampleCopy.credit.includes("Follow the arrows first.") &&
+    !sampleCopy.credit.includes("Keep this note.") &&
+    !sampleCopy.credit.includes("Also keep."),
+  "credit plus original creators, including the nested heading",
+);
+check(
+  "sample how-to body",
+  sampleCopy.howTo.includes("# How to use this chart") &&
+    sampleCopy.howTo.includes("Follow the arrows first.") &&
+    !sampleCopy.howTo.includes("Made by Nico.") &&
+    !sampleCopy.howTo.includes("fanmade"),
+  "how-to section only",
+);
+check(
+  "sample strips credit sections",
+  !hasHeading(sampleCopy.remaining, /^credit$/i) &&
+    !hasHeading(sampleCopy.remaining, /^original(?:\s+chart)?\s+creators$/i) &&
+    !sampleCopy.remaining.includes("fanmade") &&
+    !sampleCopy.remaining.includes("Made by Nico.") &&
+    sampleCopy.remaining.includes("# How to use this chart") &&
+    sampleCopy.remaining.includes("Follow the arrows first.") &&
+    sampleCopy.remaining.includes("Keep this note.") &&
+    sampleCopy.remaining.includes("Also keep."),
+  "credit and original creators removed; how-to and other text kept",
+);
+const emptyCopy = extractPageCopy("");
+check(
+  "empty markdown yields empty bodies",
+  emptyCopy.credit === "" &&
+    emptyCopy.howTo === "" &&
+    emptyCopy.remaining === "",
+  `credit ${emptyCopy.credit.length} how-to ${emptyCopy.howTo.length}`,
+);
+
+const textData = readFileSync("text_data.md", "utf8");
+const fileCopy = extractPageCopy(textData);
+const creditBody = creditPageBody(textData);
+const howToBody = howToPageBody(textData);
+check(
+  "text_data has no credit headings",
+  textData.trim() === "" &&
+    !hasHeading(textData, /^credit$/i) &&
+    !hasHeading(textData, /^original creators$/i) &&
+    !hasHeading(textData, /^original chart creators$/i) &&
+    !hasHeading(textData, /^how to use this chart$/i),
+  headingNames(textData).join(" | ") || "(none)",
+);
+check(
+  "credit and how-to page bodies equal the empty file",
+  creditBody === fileCopy.credit &&
+    howToBody === fileCopy.howTo &&
+    creditBody === "" &&
+    howToBody === "" &&
+    renderSectionHtml(creditBody) === "" &&
+    renderSectionHtml(howToBody) === "",
+  `credit ${creditBody.length} how-to ${howToBody.length}`,
+);
+
+const creditPage = readFileSync("src/pages/credit.astro", "utf8");
+const howToPage = readFileSync("src/pages/how-to-use-this-chart.astro", "utf8");
+const aboutPage = readFileSync("src/pages/about.astro", "utf8");
+const indexPage = readFileSync("src/pages/index.astro", "utf8");
+const layout = readFileSync("src/layouts/BaseLayout.astro", "utf8");
+const creditMarkdown = readFileSync("src/copy/credit.md", "utf8");
+const howToMarkdown = readFileSync("src/copy/how-to-use-this-chart.md", "utf8");
+check(
+  "pages render the moved markdown chapters",
+  creditPage.includes('import { Content } from "../copy/credit.md"') &&
+    creditPage.includes("<Content />") &&
+    !creditPage.includes("text_data.md") &&
+    !creditPage.includes("creditPageBody") &&
+    howToPage.includes(
+      'import { Content } from "../copy/how-to-use-this-chart.md"',
+    ) &&
+    howToPage.includes("<Content />") &&
+    !howToPage.includes("text_data.md") &&
+    !howToPage.includes("howToPageBody") &&
+    hasHeading(creditMarkdown, /^game workshop credit$/i) &&
+    hasHeading(creditMarkdown, /^original flow chart creators credit$/i) &&
+    creditMarkdown.includes("This flowchart is fanmade") &&
+    creditMarkdown.includes("Nico.") &&
+    !hasHeading(creditMarkdown, /^how to use this chart$/i) &&
+    hasHeading(howToMarkdown, /^how to use this chart$/i) &&
+    howToMarkdown.includes("spoiler-free reading order") &&
+    !howToMarkdown.includes("This flowchart is fanmade") &&
+    !howToMarkdown.includes("Nico.") &&
+    /<main class="text-page">\s*<\/main>/.test(aboutPage) &&
+    !aboutPage.includes("creditPage") &&
+    indexPage.includes("<FlowChart"),
+  "credit, how-to, about, graph",
+);
+
+check(
+  "site title",
+  SITE_TITLE === "Horus Heresy Order Flow Chart" &&
+    layout.includes("{SITE_TITLE}") &&
+    layout.includes("<title>{SITE_TITLE}</title>") &&
+    layout.includes('class="site-title"') &&
+    !layout.includes("Process chart") &&
+    !layout.includes("Process Name") &&
+    !indexPage.includes("Process chart") &&
+    !indexPage.includes("Process Name"),
+  SITE_TITLE,
+);
+const labels = navLinks.map((link) => link.label);
+check(
+  "nav order",
+  labels.join(" | ") === "Graph | Credit | About | How to use this chart" &&
+    navLinks[0].href === "/" &&
+    navLinks[1].href === "/credit" &&
+    navLinks[2].href === "/about" &&
+    navLinks[3].href === "/how-to-use-this-chart" &&
+    layout.includes("navLinks.map"),
+  labels.join(" | "),
+);
+
+const graph = buildChartGraph();
+const work = graph.works.find(
+  (item) => item.kind !== "shortcut" && item.title === "The Last Church",
+);
+const other = graph.works.find(
+  (item) => item.kind !== "shortcut" && item.id !== work?.id,
+);
+check(
+  "fixture works exist",
+  Boolean(work && other),
+  `${work?.id ?? "missing"} / ${other?.id ?? "missing"}`,
+);
+
+if (work && other) {
+  const selection = workSelection(work);
+  check(
+    "work selection uses the chart title and no invented author",
+    selection.id === work.id &&
+      selection.title === work.title &&
+      selection.author === "" &&
+      workAuthor(work) === "" &&
+      !("author" in work),
+    `${selection.title} author=${JSON.stringify(selection.author)}`,
+  );
+
+  let sidebar = toggleWorkSidebar(closedSidebar(), work);
+  check(
+    "work click opens sidebar",
+    sidebar.open &&
+      sidebar.workId === work.id &&
+      sidebar.bookName === work.title &&
+      sidebar.author === "" &&
+      sidebar.widthFraction === SIDEBAR_WIDTH_FRACTION &&
+      sidebar.widthFraction === 0.25 &&
+      sidebar.entrance === SIDEBAR_ENTRANCE &&
+      sidebar.entrance === "right",
+    `${sidebar.bookName} width ${sidebar.widthFraction} from ${sidebar.entrance}`,
+  );
+
+  sidebar = toggleWorkSidebar(sidebar, work);
+  check(
+    "second click closes sidebar",
+    !sidebar.open && sidebar.workId === null && sidebar.bookName === "",
+    `open ${sidebar.open}`,
+  );
+
+  sidebar = toggleWorkSidebar(closedSidebar(), work);
+  sidebar = toggleWorkSidebar(sidebar, other);
+  check(
+    "different work replaces the book",
+    sidebar.open &&
+      sidebar.workId === other.id &&
+      sidebar.bookName === other.title &&
+      sidebar.author === "" &&
+      sidebar.bookName !== work.title,
+    sidebar.bookName,
+  );
+
+  const authored = toggleWorkSidebar(closedSidebar(), {
+    ...work,
+    author: "Kept Author",
+  });
+  check(
+    "author line reads only the work author",
+    authored.author === "Kept Author" &&
+      authored.bookName === work.title &&
+      workAuthor({ id: work.id, title: work.title, author: null }) === "" &&
+      workAuthor({ id: work.id, title: work.title }) === "",
+    authored.author,
+  );
+}
+
+const legend = initialLegend();
+const openedLegend = openLegend();
+const closedLegendState = closeLegend();
+check(
+  "legend starts closed",
+  legend.open === false && legend.body === "",
+  `open ${legend.open}`,
+);
+check(
+  "legend opens to an empty body",
+  openedLegend.open === true && openedLegend.body === "",
+  `body ${JSON.stringify(openedLegend.body)}`,
+);
+check(
+  "legend close returns to closed",
+  closedLegendState.open === false && closedLegendState.body === "",
+  `open ${closedLegendState.open}`,
+);
+
+check(
+  "chart control config",
+  chartControlConfig.showInteractivityToggle === false &&
+    chartControlConfig.interactionEnabled === true &&
+    chartControlConfig.panOnDrag === true &&
+    chartControlConfig.zoomOnScroll === true &&
+    chartControlConfig.zoomOnPinch === true &&
+    chartControlConfig.zoomOnDoubleClick === true &&
+    chartControlConfig.nodesDraggable === false,
+  `toggle ${chartControlConfig.showInteractivityToggle} interaction ${chartControlConfig.interactionEnabled}`,
+);
+
+const flowSource = readFileSync("src/components/FlowChart.tsx", "utf8");
+const css = readFileSync("src/styles/global.css", "utf8");
+check(
+  "chart wires the shipped chrome",
+  flowSource.includes("toggleWorkSidebar") &&
+    flowSource.includes("workSelection") &&
+    flowSource.includes("openLegend()") &&
+    flowSource.includes("closeLegend()") &&
+    flowSource.includes(
+      "showInteractive={chartControlConfig.showInteractivityToggle}",
+    ) &&
+    flowSource.includes("chartControlConfig.interactionEnabled") &&
+    flowSource.includes('className: "nopan"') &&
+    /Legend\s*<\/button>/.test(flowSource) &&
+    /Close\s*<\/button>/.test(flowSource) &&
+    flowSource.includes('className="legend-body"') &&
+    flowSource.includes("sidebar.bookName") &&
+    flowSource.includes("sidebar.author") &&
+    flowSource.includes("data-entrance={sidebar.entrance}") &&
+    flowSource.includes("SIDEBAR_WIDTH_FRACTION") &&
+    !flowSource.includes("Toggle interactivity") &&
+    !flowSource.includes("Toggle Interactivity") &&
+    !/showInteractive=\{true\}/.test(flowSource) &&
+    css.includes("translateX(100%)") &&
+    css.includes("--work-sidebar-width") &&
+    css.includes(".legend-button") &&
+    css.includes(".legend-body"),
+  "sidebar, legend, no interactivity toggle",
+);
+
+lines.push("");
+lines.push(
+  failures.length === 0 ? "RESULT pass" : `RESULT fail ${failures.join(", ")}`,
+);
+console.log(lines.join("\n"));
+if (failures.length > 0) {
+  process.exitCode = 1;
+}
