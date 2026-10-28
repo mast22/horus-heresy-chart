@@ -13,7 +13,7 @@ import {
   ReactFlowProvider,
   useReactFlow,
 } from "@xyflow/react";
-import { type CSSProperties, useEffect } from "react";
+import { useEffect } from "react";
 import "@xyflow/react/dist/style.css";
 
 import {
@@ -21,12 +21,15 @@ import {
   type ChartWork,
   type Connection,
 } from "../flow/chart";
+import { WorkFace } from "./WorkFace";
+
+export { displayTitle } from "./WorkFace";
 
 type WorkData = {
   title: string;
   publication: string;
   kind: ChartWork["kind"];
-  color: string;
+  color: readonly string[];
   text: string;
   ribbon: boolean;
   letters: string | null;
@@ -36,56 +39,12 @@ type ZoneData = {
   label: string;
 };
 
-const MINOR_WORDS = new Set(["of", "the", "a", "and", "to", "in", "for"]);
-
-/** Poster novels are set in capitals. Title case keeps the same words readable on the canvas. */
-export function displayTitle(title: string): string {
-  const letters = title.replace(/[^A-Za-z]/g, "");
-  const isCaps = letters.length > 2 && letters === letters.toUpperCase();
-  if (!isCaps) {
-    return title;
-  }
-  return title
-    .toLowerCase()
-    .split(" ")
-    .map((word, index) => {
-      if (index > 0 && MINOR_WORDS.has(word)) {
-        return word;
-      }
-      return word.charAt(0).toUpperCase() + word.slice(1);
-    })
-    .join(" ");
-}
-
 function WorkNode({ data }: NodeProps<Node<WorkData, "work">>) {
-  const shortcut = data.kind === "shortcut";
-  const envelope =
-    data.kind === "shortStory" ||
-    data.kind === "ebook" ||
-    data.kind === "novella";
   return (
-    <div
-      className={`work-node kind-${data.kind}${shortcut ? " is-shortcut" : ""}`}
-      style={
-        {
-          background: envelope ? "transparent" : data.color,
-          color: data.text,
-          "--work-bg": data.color,
-        } as CSSProperties
-      }
-    >
-      {shortcut ? <span className="work-letters">{data.letters}</span> : null}
-      <span className="work-title">{displayTitle(data.title)}</span>
-      <span className="work-pub">{data.publication}</span>
-      {data.ribbon ? (
-        <span className="work-ribbons" aria-hidden="true">
-          <i />
-          <i />
-        </span>
-      ) : null}
+    <WorkFace data={data}>
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />
-    </div>
+    </WorkFace>
   );
 }
 
