@@ -2,8 +2,10 @@
 
 The fill is the color that spans the box, top to bottom. A book about more
 than one legion is several bands. Black rules, glyph ink, and the one-pixel
-blend between bands are not fills. A band has to be at least 6px tall so a
-thin stripe still counts and a boundary fringe does not.
+blend between bands are not fills. A black fill is kept: near-black pixels
+are the color when they span the row, and light type on that row is not.
+A band has to be at least 6px tall so a thin stripe still counts and a
+boundary fringe does not.
 """
 
 from __future__ import annotations
@@ -44,7 +46,8 @@ def _border_index(crop: np.ndarray, along: str, from_end: bool) -> int | None:
     height, width, _ = crop.shape
     limit = height if along == "row" else width
     need = max(12, int((width if along == "row" else height) * 0.55))
-    scan = min(limit, 36)
+    # A loose box can leave the rule further in than the corner inset.
+    scan = min(limit, max(36, limit // 4))
     for step in range(scan):
         index = limit - 1 - step if from_end else step
         line = crop[index] if along == "row" else crop[:, index]
@@ -60,47 +63,40 @@ def _page_like(color: tuple[int, int, int]) -> bool:
     return lo >= 214 and hi - lo <= 16
 
 
-def _strip_median(sample: np.ndarray) -> tuple[int, int, int] | None:
-    if sample.size == 0:
-        return None
-    keep = sample[~((sample[:, 0] < BLACK) & (sample[:, 1] < BLACK) & (sample[:, 2] < BLACK))]
-    if keep.shape[0] < 3:
-        return None
-    return (_median(keep[:, 0]), _median(keep[:, 1]), _median(keep[:, 2]))
+def _rgb(sample: np.ndarray) -> tuple[int, int, int]:
+    return (_median(sample[:, 0]), _median(sample[:, 1]), _median(sample[:, 2]))
+
+
+def _close(a: np.ndarray, b: np.ndarray) -> bool:
+    return max(abs(int(a[0]) - int(b[0])), abs(int(a[1]) - int(b[1])), abs(int(a[2]) - int(b[2]))) <= 28
 
 
 def _row_color(row: np.ndarray) -> tuple[int, int, int] | None:
     """Color of the fill on this row.
 
-    Side strips sit inside the corner and outside the centered title, so glyph
-    ink does not move the median. A chamfer or rounded cap can put paper on one
-    side; that side is ignored. When both sides are paper and the middle is a
-    fill, the middle is the cap of a round node.
+    The fill is the longest run of one color. Glyph strokes and the blend at a
+    letter's edge are shorter, so they do not become the color. A black fill
+    is that run when black spans the row; white type on it is not.
     """
     width = int(row.shape[0])
-    # A fixed strip just inside the rule. Percent gutters reach wide titles.
-    inset = 7 if width >= 36 else 2
-    span = 6 if width >= 36 else max(3, width // 6)
-    left0 = inset
-    left1 = min(width, inset + span)
-    right1 = max(0, width - inset)
-    right0 = max(0, right1 - span)
-    if right0 <= left1:
-        left0, left1 = 1, max(2, width // 5)
-        right0, right1 = min(width - 2, (4 * width) // 5), max(left1 + 1, width - 1)
-    sides = []
-    for color in (
-        _strip_median(row[left0:left1]),
-        _strip_median(row[right0:right1]),
-    ):
-        if color is not None and not _page_like(color):
-            sides.append(color)
-    if sides:
-        return _run_median(sides)
-    center = _strip_median(row[int(width * 0.3) : int(width * 0.7)])
-    if center is not None:
-        return center
-    return _strip_median(row[left0:left1]) or _strip_median(row[right0:right1])
+    if width < 3:
+        return None
+    best_start = 0
+    best_end = 0
+    start = 0
+    for index in range(1, width):
+        if _close(row[index], row[index - 1]):
+            continue
+        if index - start > best_end - best_start:
+            best_start = start
+            best_end = index
+        start = index
+    if width - start > best_end - best_start:
+        best_start = start
+        best_end = width
+    if best_end - best_start < 3:
+        return None
+    return _rgb(row[best_start:best_end])
 
 
 def _far(a: tuple[int, int, int], b: tuple[int, int, int]) -> bool:
@@ -142,7 +138,10 @@ def measure_bands(image: np.ndarray, x: int, y: int, w: int, h: int) -> list[tup
     for color in rows:
         if color is None:
             continue
-        if not runs or _far(color, _run_median(runs[-1])):
+        # Page white can sit within SAME of a cream fill. Keep that cap separate
+        # so a loose box can trim the paper without taking the fill with it.
+        split_page = bool(runs) and _page_like(color) != _page_like(_run_median(runs[-1]))
+        if not runs or split_page or _far(color, _run_median(runs[-1])):
             runs.append([color])
         else:
             runs[-1].append(color)
@@ -153,7 +152,9 @@ def measure_bands(image: np.ndarray, x: int, y: int, w: int, h: int) -> list[tup
         kept = [max(runs, key=len)]
     merged: list[list[tuple[int, int, int]]] = [kept[0]]
     for run in kept[1:]:
-        if _far(_run_median(merged[-1]), _run_median(run)):
+        previous = _run_median(merged[-1])
+        current = _run_median(run)
+        if _far(previous, current) or _page_like(previous) != _page_like(current):
             merged.append(run)
         else:
             merged[-1].extend(run)
@@ -164,9 +165,9 @@ def measure_bands(image: np.ndarray, x: int, y: int, w: int, h: int) -> list[tup
             merged.pop(0)
         while len(merged) > 1 and _page_like(_run_median(merged[-1])):
             merged.pop()
-    # Wide titles repaint the edge strip for a few rows. That interruption sits
-    # between two runs of the same fill and stays close to it. A real middle
-    # legion (red, salmon, red) is much further away and stays.
+    # A title can interrupt one fill for a few rows. The interruption sits
+    # between two runs of that fill and stays close to it. A different legion
+    # between them is further away and stays.
     index = 1
     while index < len(merged) - 1:
         left = _run_median(merged[index - 1])

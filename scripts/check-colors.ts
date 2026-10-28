@@ -27,6 +27,10 @@ function channel(hex: string, index: number): number {
   return Number.parseInt(hex.slice(1 + index * 2, 3 + index * 2), 16);
 }
 
+function nearBlack(hex: string): boolean {
+  return [0, 1, 2].every((index) => channel(hex, index) <= 45);
+}
+
 function close(stored: string, measuredColor: string): boolean {
   return [0, 1, 2].every(
     (index) => Math.abs(channel(stored, index) - channel(measuredColor, index)) <= 40,
@@ -81,6 +85,61 @@ for (const [label, title, count] of named) {
     `${label} ${count}`,
     Boolean(work && colors && colors.length === count && work.color.length === count),
     work ? `${work.color.length} stored, ${colors?.length ?? 0} measured ${work.color.join(" ")}` : "missing",
+  );
+}
+
+const blackFill = [
+  ["Deliverance Lost", "deliverance-lost"],
+  ["The Divine Word", "the-divine-word"],
+  ["The Shadowmasters", "the-shadowmasters"],
+  ["The Face of Treachery", "the-face-of-treachery"],
+  ["Ravenlord", "ravenlord"],
+  ["Soulforge", "soulforge"],
+  ["Raven's Flight", "raven-s-flight"],
+  ["Weregeld", "weregeld"],
+] as const;
+
+for (const [label, id] of blackFill) {
+  const work = graph.works.find((item) => item.id === id);
+  const colors = work ? measured.get(work.id) : undefined;
+  const stored = work?.color[0];
+  const band = colors?.[0];
+  check(
+    `${label} 1 near-black`,
+    Boolean(
+      work &&
+        colors &&
+        colors.length === 1 &&
+        work.color.length === 1 &&
+        stored &&
+        band &&
+        nearBlack(stored) &&
+        nearBlack(band),
+    ),
+    work
+      ? `${work.color.length} stored ${work.color.join(" ")}, ${colors?.length ?? 0} measured ${colors?.join(" ") ?? ""}`
+      : "missing",
+  );
+}
+
+const oneFill: Array<[string, RegExp]> = [
+  ["Fear to Tread", /^fear to tread$/i],
+  ["Guardian of Order", /guardian of order/i],
+  ["Hubris of Monarchia", /hubris of monarchia/i],
+  ["Nightfane", /^nightfane$/i],
+];
+
+for (const [label, title] of oneFill) {
+  const work = graph.works.find(
+    (item) => item.kind !== "shortcut" && title.test(item.title),
+  );
+  const colors = work ? measured.get(work.id) : undefined;
+  check(
+    `${label} 1`,
+    Boolean(work && colors && colors.length === 1 && work.color.length === 1),
+    work
+      ? `${work.color.length} stored ${work.color.join(" ")}, ${colors?.length ?? 0} measured ${colors?.join(" ") ?? ""}`
+      : "missing",
   );
 }
 
