@@ -1,4 +1,4 @@
-import type { Faction } from "../flow/legions";
+import type { Faction } from "../flow/legions.ts";
 
 export const SIDEBAR_WIDTH_FRACTION = 0.25;
 export const SIDEBAR_ENTRANCE = "right" as const;
@@ -21,6 +21,7 @@ export type WorkLike = {
   author?: string | null;
   year?: number | null;
   length?: string | null;
+  description?: string | null;
   factions?: readonly Faction[];
 };
 
@@ -32,6 +33,7 @@ export type SidebarState = {
   author: string;
   year: number | null;
   length: string;
+  description: string;
   factions: readonly Faction[];
   widthFraction: number;
   entrance: typeof SIDEBAR_ENTRANCE;
@@ -57,6 +59,7 @@ export function workSelection(work: WorkLike): WorkLike {
     author: workAuthor(work),
     year: work.year ?? null,
     length: work.length ?? "",
+    description: work.description ?? "",
     factions: work.factions ?? [],
   };
 }
@@ -70,6 +73,7 @@ export function closedSidebar(): SidebarState {
     author: "",
     year: null,
     length: "",
+    description: "",
     factions: [],
     widthFraction: SIDEBAR_WIDTH_FRACTION,
     entrance: SIDEBAR_ENTRANCE,
@@ -92,6 +96,7 @@ export function toggleWorkSidebar(
     author: selection.author ?? "",
     year: selection.year ?? null,
     length: selection.length ?? "",
+    description: selection.description ?? "",
     factions: selection.factions ?? [],
     widthFraction: SIDEBAR_WIDTH_FRACTION,
     entrance: SIDEBAR_ENTRANCE,

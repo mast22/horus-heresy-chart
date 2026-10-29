@@ -85,6 +85,7 @@ header nav a[aria-current="page"] {
 }
 
 .flow-root {
+  position: relative;
   flex: 1 1 auto;
   min-block-size: 0;
   min-inline-size: 0;
@@ -149,17 +150,14 @@ header nav a[aria-current="page"] {
   transform: translateX(0);
 }
 
-.sidebar-heading {
+.sidebar-top {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.35rem 0.75rem;
-  margin: 0 0 0.45rem;
+  justify-content: flex-end;
+  margin: 0 0 0.5rem;
 }
 
 .sidebar-book {
-  margin: 0;
+  margin: 0 0 0.45rem;
   font-size: 1.35rem;
   line-height: 1.25;
 }
@@ -185,6 +183,16 @@ header nav a[aria-current="page"] {
   margin: 0 0 1rem;
   color: #6b645c;
   font-size: 0.85rem;
+}
+
+.sidebar-description {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem;
+  border-inline-start: 3px solid var(--line);
+  background: #faf7f0;
+  color: #3f3a33;
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .sidebar-facts {
@@ -232,6 +240,106 @@ header nav a[aria-current="page"] {
   inline-size: 0.7rem;
   block-size: 0.7rem;
   border: 1px solid rgba(28, 25, 23, 0.25);
+}
+
+.chart-search {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 10;
+  inline-size: min(20rem, calc(100% - 1.5rem));
+}
+
+.chart-search-input {
+  box-sizing: border-box;
+  inline-size: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  background: var(--header-bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  box-shadow: 0 8px 24px rgba(28, 25, 23, 0.1);
+}
+
+.chart-search-input:focus {
+  outline: 2px solid #c00000;
+  outline-offset: -1px;
+}
+
+.chart-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-block-size: 60dvh;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--line);
+  background: var(--header-bg);
+  box-shadow: 0 16px 40px rgba(28, 25, 23, 0.18);
+}
+
+.chart-search-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  inline-size: 100%;
+  padding: 0.5rem 0.7rem;
+  border: none;
+  border-block-end: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.chart-search-result:last-child {
+  border-block-end: none;
+}
+
+.chart-search-result:hover,
+.chart-search-result:focus-visible,
+.chart-search-result.is-active {
+  background: var(--page-bg);
+}
+
+.chart-search-label {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.chart-search-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #6b645c;
+  font-size: 0.78rem;
+}
+
+.chart-search-kind {
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chart-search-kind.kind-work {
+  color: #a02525;
+}
+
+.chart-search-kind.kind-author {
+  color: #204090;
+}
+
+.chart-search-kind.kind-legion {
+  color: #2f8f28;
 }
 
 .react-flow__controls .legend-button {
@@ -318,6 +426,25 @@ header nav a[aria-current="page"] {
   border-radius: 12px;
   overflow: visible;
   background: transparent;
+}
+
+.react-flow__node-work.is-pulsing .work-node {
+  animation: work-pulse 1s ease-out infinite;
+}
+
+@keyframes work-pulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(192, 0, 0, 0.9),
+      0 0 0 0 rgba(192, 0, 0, 0.6);
+    border-color: #c00000;
+  }
+  100% {
+    box-shadow:
+      0 0 0 30px rgba(192, 0, 0, 0),
+      0 0 0 54px rgba(192, 0, 0, 0);
+    border-color: #161616;
+  }
 }
 
 .work-bands {

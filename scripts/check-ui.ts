@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { buildChartGraph } from "../src/flow/chart.ts";
 import { FACTION_COLORS, factionsFor } from "../src/flow/legions.ts";
+import { nextWorkIds } from "../src/flow/navigation.ts";
+import { search } from "../src/flow/search.ts";
 import { selectionFor } from "../src/flow/selection.ts";
 import { workDetails } from "../src/flow/work-details.ts";
 import {
@@ -219,11 +221,12 @@ const incomplete = nonShortcut.filter((item) => {
     !details ||
     details.author.trim() === "" ||
     !Number.isInteger(details.year) ||
-    details.length.trim() === ""
+    details.length.trim() === "" ||
+    details.description.trim() === ""
   );
 });
 check(
-  "details have author, year and length",
+  "details have author, year, length and description",
   incomplete.length === 0,
   incomplete.map((item) => item.id).join(",") || "all complete",
 );
@@ -248,6 +251,8 @@ if (work && other) {
       selection.author === "Graham McNeill" &&
       selection.year === 2009 &&
       selection.length === "1 hr 26 min audio" &&
+      selection.description === workDetails[work.id].description &&
+      selection.description.length > 0 &&
       selection.factions.length === 1 &&
       selection.factions[0]?.name === "Expunged from Imperial Archives",
     `${selection.title} by ${selection.author}, ${selection.year}, ${selection.length}, ${selection.factions.map((faction) => faction.name).join(",")}`,
@@ -263,6 +268,7 @@ if (work && other) {
       sidebar.author === "Graham McNeill" &&
       sidebar.year === 2009 &&
       sidebar.length === "1 hr 26 min audio" &&
+      sidebar.description === workDetails[work.id].description &&
       sidebar.factions.length === 1 &&
       sidebar.widthFraction === SIDEBAR_WIDTH_FRACTION &&
       sidebar.widthFraction === 0.25 &&
@@ -409,6 +415,54 @@ check(
     css.includes(".legend-button") &&
     css.includes(".legend-body"),
   "sidebar, legend, no interactivity toggle",
+);
+
+const lunaWolves = search("luna wolves").find(
+  (result) => result.kind === "legion",
+);
+check(
+  "search resolves a legion to its works",
+  Boolean(lunaWolves?.nodeIds.includes("horus-rising")),
+  `${lunaWolves?.label ?? "missing"} -> ${lunaWolves?.nodeIds.length ?? 0} works`,
+);
+
+const abnett = search("abnett").find((result) => result.kind === "author");
+check(
+  "search resolves an author",
+  Boolean(abnett && abnett.nodeIds.length > 0),
+  `${abnett?.label ?? "missing"} -> ${abnett?.nodeIds.length ?? 0} works`,
+);
+
+const galaxy = search("galaxy in flames").find(
+  (result) => result.kind === "work",
+);
+check(
+  "search resolves a work by name",
+  galaxy?.label === "GALAXY IN FLAMES",
+  galaxy?.label ?? "missing",
+);
+
+check(
+  "next work follows the primary arrows",
+  nextWorkIds("galaxy-in-flames").includes("the-flight-of-the-eisenstein"),
+  nextWorkIds("galaxy-in-flames").join(","),
+);
+
+check(
+  "search, pulse, description and close chrome",
+  flowSource.includes("useNodesState") &&
+    flowSource.includes("is-pulsing") &&
+    flowSource.includes("nextWorkIds") &&
+    flowSource.includes("sidebar.description") &&
+    flowSource.includes('className="sidebar-description"') &&
+    flowSource.includes('className="sidebar-top"') &&
+    css.includes(".chart-search") &&
+    css.includes(".chart-search-results") &&
+    css.includes(".is-pulsing") &&
+    css.includes("@keyframes work-pulse") &&
+    css.includes(".sidebar-description") &&
+    css.includes(".sidebar-top"),
+  "search overlay, pulse animation, description and top close button",
 );
 
 lines.push("");

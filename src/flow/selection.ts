@@ -1,4 +1,4 @@
-import type { ChartWork } from "./chart";
+import type { ChartWork } from "./chart.ts";
 import { type Faction, factionsFor } from "./legions.ts";
 import { workDetails } from "./work-details.ts";
 
@@ -9,6 +9,7 @@ export type WorkSelection = {
   author: string;
   year: number | null;
   length: string;
+  description: string;
   factions: readonly Faction[];
 };
 
@@ -27,6 +28,7 @@ export function selectionFor(
     author: details?.author ?? "Unknown",
     year: details?.year ?? null,
     length: details?.length ?? "Unknown",
+    description: details?.description ?? "",
     factions: factionsFor(target.color),
   };
 }

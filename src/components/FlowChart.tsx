@@ -11,6 +11,7 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
+  useNodesState,
   useReactFlow,
 } from "@xyflow/react";
 import { type CSSProperties, useEffect, useState } from "react";
@@ -22,6 +23,8 @@ import {
   type ChartWork,
   type Connection,
 } from "../flow/chart";
+import { nextWorkIds } from "../flow/navigation";
+import { SearchBox } from "./SearchBox";
 import { displayTitle, WorkFace } from "./WorkFace";
 
 export { displayTitle } from "./WorkFace";
@@ -235,11 +238,18 @@ function chartEdges(): Edge[] {
   }));
 }
 
-const nodes = chartNodes();
-const edges = chartEdges();
+const initialNodes = chartNodes();
+const initialEdges = chartEdges();
 const worksById = new Map(
   buildChartGraph().works.map((work) => [work.id, work]),
 );
+
+function workClassName(node: Node, pulsing: boolean): string | undefined {
+  if (node.type !== "work") {
+    return undefined;
+  }
+  return pulsing ? "nopan is-pulsing" : "nopan";
+}
 
 function FitViewOnMount() {
   const { fitView } = useReactFlow();
@@ -251,10 +261,82 @@ function FitViewOnMount() {
   return null;
 }
 
+function ChartCanvas({
+  pulseIds,
+  onWorkClick,
+  onOpenLegend,
+}: {
+  pulseIds: ReadonlySet<string>;
+  onWorkClick: (id: string) => void;
+  onOpenLegend: () => void;
+}) {
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const interactive = chartControlConfig.interactionEnabled;
+
+  useEffect(() => {
+    setNodes((current) =>
+      current.map((node) => {
+        const className = workClassName(node, pulseIds.has(node.id));
+        return node.className === className ? node : { ...node, className };
+      }),
+    );
+  }, [pulseIds, setNodes]);
+
+  return (
+    <ReactFlow
+      nodes={nodes}
+      onNodesChange={onNodesChange}
+      defaultEdges={initialEdges}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      fitView
+      fitViewOptions={{ padding: 0.04, duration: 0 }}
+      minZoom={0.02}
+      maxZoom={1.5}
+      colorMode="light"
+      nodesDraggable={chartControlConfig.nodesDraggable}
+      nodesConnectable={chartControlConfig.nodesConnectable}
+      elementsSelectable={false}
+      panOnDrag={interactive && chartControlConfig.panOnDrag}
+      zoomOnScroll={interactive && chartControlConfig.zoomOnScroll}
+      zoomOnPinch={interactive && chartControlConfig.zoomOnPinch}
+      zoomOnDoubleClick={interactive && chartControlConfig.zoomOnDoubleClick}
+      proOptions={{ hideAttribution: true }}
+      onNodeClick={(_event, node) => {
+        if (node.type === "work") {
+          onWorkClick(node.id);
+        }
+      }}
+    >
+      <FitViewOnMount />
+      <Controls
+        showInteractive={chartControlConfig.showInteractivityToggle}
+        orientation="vertical"
+      >
+        <button type="button" className="legend-button" onClick={onOpenLegend}>
+          Legend
+        </button>
+      </Controls>
+      <Background />
+    </ReactFlow>
+  );
+}
+
 export default function FlowChart() {
   const [sidebar, setSidebar] = useState(closedSidebar);
   const [legend, setLegend] = useState(initialLegend);
-  const interactive = chartControlConfig.interactionEnabled;
+  const [pulseIds, setPulseIds] = useState<ReadonlySet<string>>(new Set());
+
+  function handleWorkClick(workId: string) {
+    const work = worksById.get(workId);
+    if (!work) {
+      return;
+    }
+    const selection = selectionFor(work, worksById);
+    const nextSidebar = toggleWorkSidebar(sidebar, selection);
+    setSidebar(nextSidebar);
+    setPulseIds(nextSidebar.open ? new Set(nextWorkIds(workId)) : new Set());
+  }
 
   return (
     <div
@@ -267,55 +349,13 @@ export default function FlowChart() {
     >
       <div className="flow-root">
         <ReactFlowProvider>
-          <ReactFlow
-            defaultNodes={nodes}
-            defaultEdges={edges}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            fitView
-            fitViewOptions={{ padding: 0.04, duration: 0 }}
-            minZoom={0.02}
-            maxZoom={1.5}
-            colorMode="light"
-            nodesDraggable={chartControlConfig.nodesDraggable}
-            nodesConnectable={chartControlConfig.nodesConnectable}
-            elementsSelectable={false}
-            panOnDrag={interactive && chartControlConfig.panOnDrag}
-            zoomOnScroll={interactive && chartControlConfig.zoomOnScroll}
-            zoomOnPinch={interactive && chartControlConfig.zoomOnPinch}
-            zoomOnDoubleClick={
-              interactive && chartControlConfig.zoomOnDoubleClick
-            }
-            proOptions={{ hideAttribution: true }}
-            onNodeClick={(_event, node) => {
-              if (node.type !== "work") {
-                return;
-              }
-              const work = worksById.get(node.id);
-              if (!work) {
-                return;
-              }
-              setSidebar((current) =>
-                toggleWorkSidebar(current, selectionFor(work, worksById)),
-              );
-            }}
-          >
-            <FitViewOnMount />
-            <Controls
-              showInteractive={chartControlConfig.showInteractivityToggle}
-              orientation="vertical"
-            >
-              <button
-                type="button"
-                className="legend-button"
-                onClick={() => setLegend(openLegend())}
-              >
-                Legend
-              </button>
-            </Controls>
-            <Background />
-          </ReactFlow>
+          <ChartCanvas
+            pulseIds={pulseIds}
+            onWorkClick={handleWorkClick}
+            onOpenLegend={() => setLegend(openLegend())}
+          />
         </ReactFlowProvider>
+        <SearchBox onSelect={(ids) => setPulseIds(new Set(ids))} />
       </div>
       <aside
         className={sidebar.open ? "work-sidebar is-open" : "work-sidebar"}
@@ -327,10 +367,7 @@ export default function FlowChart() {
         <div className="work-sidebar-panel">
           {sidebar.open ? (
             <>
-              <div className="sidebar-heading">
-                <h2 className="sidebar-book">
-                  {displayTitle(sidebar.bookName)}
-                </h2>
+              <div className="sidebar-top">
                 <button
                   type="button"
                   className="sidebar-close"
@@ -339,8 +376,12 @@ export default function FlowChart() {
                   Close
                 </button>
               </div>
+              <h2 className="sidebar-book">{displayTitle(sidebar.bookName)}</h2>
               {sidebar.publication ? (
                 <p className="sidebar-meta">{sidebar.publication}</p>
+              ) : null}
+              {sidebar.description ? (
+                <p className="sidebar-description">{sidebar.description}</p>
               ) : null}
               <dl className="sidebar-facts">
                 <dt>Author</dt>
