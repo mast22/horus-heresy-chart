@@ -1,11 +1,8 @@
 ---
 import "../styles/global.css";
+import { navLinks, SITE_TITLE } from "../site/nav";
 
-interface Props {
-  title: string;
-}
-
-const { title } = Astro.props;
+const pathname = Astro.url.pathname.replace(/\/$/, "") || "/";
 ---
 
 <!doctype html>
@@ -13,12 +10,22 @@ const { title } = Astro.props;
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{title}</title>
+    <title>{SITE_TITLE}</title>
     <link rel="icon" href="/favicon.ico">
   </head>
   <body>
     <header>
-      <p>Process chart</p>
+      <p class="site-title">{SITE_TITLE}</p>
+      <nav aria-label="Pages">
+        {navLinks.map((link) => (
+          <a
+            href={link.href}
+            aria-current={pathname === link.href ? "page" : undefined}
+          >
+            {link.label}
+          </a>
+        ))}
+      </nav>
     </header>
     <slot />
   </body>

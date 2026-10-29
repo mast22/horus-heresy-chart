@@ -25,28 +25,207 @@ body {
   min-block-size: 100dvh;
 }
 
+body:has(.chart) {
+  block-size: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
 header {
   display: flex;
   align-items: center;
-  block-size: var(--header-size);
-  padding-inline: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  min-block-size: var(--header-size);
+  padding: 0.55rem 1rem;
   background: var(--header-bg);
   border-block-end: 1px solid var(--line);
 }
 
-header p {
+.site-title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1rem;
+  font-weight: 650;
   letter-spacing: 0.01em;
 }
 
+header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+}
+
+header nav a {
+  color: inherit;
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+
+header nav a[aria-current="page"] {
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+}
+
 .chart {
-  block-size: calc(100dvh - var(--header-size));
+  display: flex;
+  min-block-size: 0;
+  min-inline-size: 0;
+  block-size: 100%;
+}
+
+.chart-shell {
+  display: flex;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: hidden;
 }
 
 .flow-root {
-  width: 100%;
-  height: 100%;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  block-size: 100%;
+}
+
+.text-page {
+  flex: 1 1 auto;
+  inline-size: min(46rem, 100%);
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.page-copy h1 {
+  margin: 1.4rem 0 0.6rem;
+  font-size: 1.5rem;
+  line-height: 1.25;
+}
+
+.page-copy h1:first-child {
+  margin-top: 0;
+}
+
+.page-copy p {
+  margin: 0 0 0.9rem;
+  line-height: 1.5;
+}
+
+.page-copy a {
+  color: inherit;
+}
+
+.work-sidebar {
+  flex: 0 0 0;
+  inline-size: 0;
+  min-inline-size: 0;
+  overflow: hidden;
+  background: var(--header-bg);
+  border-inline-start: 1px solid transparent;
+  transition:
+    flex-basis 240ms ease,
+    inline-size 240ms ease,
+    border-color 240ms ease;
+}
+
+.work-sidebar.is-open {
+  flex-basis: var(--work-sidebar-width);
+  inline-size: var(--work-sidebar-width);
+  border-inline-start-color: var(--line);
+}
+
+.work-sidebar-panel {
+  box-sizing: border-box;
+  inline-size: var(--work-sidebar-width);
+  block-size: 100%;
+  padding: 1.25rem 1rem;
+  overflow: auto;
+  transform: translateX(100%);
+  transition: transform 240ms ease;
+}
+
+.work-sidebar.is-open .work-sidebar-panel {
+  transform: translateX(0);
+}
+
+.sidebar-book {
+  margin: 0 0 0.85rem;
+  font-size: 1.35rem;
+  line-height: 1.25;
+}
+
+.sidebar-author {
+  margin: 0;
+  min-block-size: 1.4em;
+}
+
+.sidebar-author-label {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sidebar-author-value {
+  display: block;
+  min-block-size: 1.2em;
+  font-size: 0.95rem;
+}
+
+.react-flow__controls .legend-button {
+  display: block;
+  inline-size: 100%;
+  min-inline-size: 4.6rem;
+  margin: 0;
+  padding: 0.35rem 0.4rem;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: var(--header-bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+}
+
+.legend-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(28, 25, 23, 0.45);
+}
+
+.legend-dialog {
+  display: flex;
+  flex-direction: column;
+  inline-size: min(24rem, 100%);
+  min-block-size: 8rem;
+  background: var(--header-bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: 0 16px 40px rgba(28, 25, 23, 0.18);
+}
+
+.legend-body {
+  flex: 1 1 auto;
+}
+
+.legend-close {
+  align-self: flex-end;
+  margin: 0.75rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }
 
 .react-flow__node-work,
@@ -55,6 +234,10 @@ header p {
   border: none;
   background: transparent;
   border-radius: 0;
+}
+
+.react-flow__node-work {
+  cursor: pointer;
 }
 
 .react-flow__handle {
