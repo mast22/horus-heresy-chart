@@ -124,6 +124,23 @@ const CONNECTION_ORDER: Record<Connection, number> = {
   tertiary: 2,
 };
 
+const EDGE_STYLE: Record<
+  Connection,
+  {
+    strokeWidth: number;
+    strokeDasharray?: string;
+    strokeDashoffset?: number;
+  }
+> = {
+  primary: { strokeWidth: 10 },
+  secondary: { strokeWidth: 5, strokeDasharray: "12 10" },
+  tertiary: {
+    strokeWidth: 4,
+    strokeDasharray: "4 18",
+    strokeDashoffset: 7,
+  },
+};
+
 const ARROW_LENGTH = 22;
 const ARROW_WIDTH = 26;
 const DIAMOND_LENGTH = 28;
@@ -313,21 +330,29 @@ function chartNodes(): Node[] {
 
 function chartEdges(): Edge[] {
   const { edges } = buildChartGraph();
-  return edges.map((edge) => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    sourceHandle: `source-${edge.connection}`,
-    targetHandle: `target-${edge.connection}`,
-    type: "tipped",
-    zIndex: 1,
-    data: { connection: edge.connection } satisfies TippedEdgeData,
-    style: {
-      stroke: STROKE[edge.connection],
-      strokeWidth: edge.connection === "primary" ? 2.5 : 2,
-      strokeDasharray: edge.connection === "primary" ? undefined : "4 11",
-    },
-  }));
+  return [...edges]
+    .sort(
+      (a, b) => CONNECTION_ORDER[a.connection] - CONNECTION_ORDER[b.connection],
+    )
+    .map((edge) => {
+      const style = EDGE_STYLE[edge.connection];
+      return {
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: `source-${edge.connection}`,
+        targetHandle: `target-${edge.connection}`,
+        type: "tipped",
+        zIndex: 1,
+        data: { connection: edge.connection } satisfies TippedEdgeData,
+        style: {
+          stroke: STROKE[edge.connection],
+          strokeWidth: style.strokeWidth,
+          strokeDasharray: style.strokeDasharray,
+          strokeDashoffset: style.strokeDashoffset,
+        },
+      };
+    });
 }
 
 const initialNodes = chartNodes();
