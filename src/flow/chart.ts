@@ -4358,12 +4358,6 @@ export const edges: readonly ChartEdge[] = [
     connection: "primary",
   },
   {
-    id: "p38-the-reflection-crack-d-riven",
-    source: "the-reflection-crack-d",
-    target: "riven",
-    connection: "primary",
-  },
-  {
     id: "p39-riven-the-keys-of-hel",
     source: "riven",
     target: "the-keys-of-hel",
@@ -4424,12 +4418,6 @@ export const edges: readonly ChartEdge[] = [
     connection: "primary",
   },
   {
-    id: "p51-the-reflection-crack-d-kryptos",
-    source: "the-reflection-crack-d",
-    target: "kryptos",
-    connection: "primary",
-  },
-  {
     id: "p52-exocytosis-the-buried-dagger",
     source: "exocytosis",
     target: "the-buried-dagger",
@@ -4478,10 +4466,10 @@ export const edges: readonly ChartEdge[] = [
     connection: "primary",
   },
   {
-    id: "p56-the-reflection-crack-d-the-phoenician",
+    id: "p56-the-reflection-crack-d-angel-exterminatus",
     source: "the-reflection-crack-d",
-    target: "the-phoenician",
-    connection: "primary",
+    target: "angel-exterminatus",
+    connection: "tertiary",
   },
   {
     id: "p57-weregeld-the-grey-raven-the-grey",
@@ -4966,21 +4954,9 @@ export const edges: readonly ChartEdge[] = [
     connection: "secondary",
   },
   {
-    id: "s144-massacre-veritas-ferrum",
-    source: "massacre",
-    target: "veritas-ferrum",
-    connection: "secondary",
-  },
-  {
     id: "s145-veritas-ferrum-the-damnation-of-pythos",
     source: "veritas-ferrum",
     target: "the-damnation-of-pythos",
-    connection: "secondary",
-  },
-  {
-    id: "s146-massacre-deeds-endure",
-    source: "massacre",
-    target: "deeds-endure",
     connection: "secondary",
   },
   {
@@ -4993,12 +4969,6 @@ export const edges: readonly ChartEdge[] = [
     id: "s148-the-lion-by-the-lion-s-command",
     source: "the-lion",
     target: "by-the-lion-s-command",
-    connection: "secondary",
-  },
-  {
-    id: "s150-massacre-army-of-one",
-    source: "massacre",
-    target: "army-of-one",
     connection: "secondary",
   },
   {
@@ -5635,6 +5605,12 @@ export const edges: readonly ChartEdge[] = [
     id: "m-saturnine-the-fury-of-magnus",
     source: "saturnine",
     target: "the-fury-of-magnus",
+    connection: "primary",
+  },
+  {
+    id: "m-fulgrim-rim-riven",
+    source: "fulgrim-rim",
+    target: "riven",
     connection: "primary",
   },
 ];

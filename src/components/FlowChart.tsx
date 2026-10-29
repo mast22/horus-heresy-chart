@@ -210,6 +210,16 @@ const TIP: Record<
   tertiary: semicirclePath,
 };
 
+/**
+ * Distance to pull the shaft back so it ends behind the tip instead of
+ * running through it, which would blunt the point.
+ */
+const SHAFT_INSET: Record<Connection, number> = {
+  primary: ARROW_LENGTH - 2,
+  secondary: DIAMOND_LENGTH,
+  tertiary: 0,
+};
+
 function TippedEdge({
   id,
   sourceX,
@@ -221,15 +231,22 @@ function TippedEdge({
   data,
   style,
 }: EdgeProps<Edge<TippedEdgeData, "tipped">>) {
+  const connection = data?.connection ?? "primary";
+  const shaftTarget = place(
+    targetX,
+    targetY,
+    targetPosition,
+    SHAFT_INSET[connection],
+    0,
+  );
   const [edgePath] = getSmoothStepPath({
     sourceX,
     sourceY,
-    targetX,
-    targetY,
+    targetX: shaftTarget.x,
+    targetY: shaftTarget.y,
     sourcePosition,
     targetPosition,
   });
-  const connection = data?.connection ?? "primary";
 
   return (
     <>
