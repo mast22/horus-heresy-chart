@@ -14,6 +14,9 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bands import measure_bands
 from scipy import ndimage
 from skimage.morphology import (
     binary_closing,
@@ -369,13 +372,23 @@ def detect_badges(arr, interior):
         cx = (xsl.start + xsl.stop) / 2
         crop = arr[ysl, xsl]
         med = np.median(crop.reshape(-1, 3), axis=0)
+        x0 = int(xsl.start)
+        y0 = int(ysl.start)
+        x1 = int(xsl.stop)
+        y1 = int(ysl.stop)
+        # fill stays the median used to tell F from FT. fills is every band.
+        fills = [
+            [int(channel) for channel in color]
+            for color in measure_bands(arr, x0, y0, x1 - x0, y1 - y0)
+        ]
         badges.append(
             {
                 "id": f"badge-{len(badges)+1}",
                 "title": "Shortcut",
                 "kind": "shortcut",
-                "box": [int(xsl.start), int(ysl.start), int(xsl.stop), int(ysl.stop)],
+                "box": [x0, y0, x1, y1],
                 "fill": [int(med[0]), int(med[1]), int(med[2])],
+                "fills": fills,
                 "ribbon": False,
                 "publication": "",
                 "book": None,

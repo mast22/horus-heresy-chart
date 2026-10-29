@@ -375,6 +375,8 @@ def main():
                 "textBox": [round(v, 1) for v in text_box],
                 "box": border,
                 "ribbon": bool(has_ribbon(arr, border)),
+                # fill is the legacy single median, used for faction and ink.
+                # fills is every horizontal faction band, top to bottom.
                 "fill": fill_color(arr, border),
                 "fills": fills,
                 "lines": texts,

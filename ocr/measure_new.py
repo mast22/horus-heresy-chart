@@ -6,11 +6,15 @@ See README.md in this directory.
 """
 
 import re
+import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 from scipy import ndimage
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bands import measure_bands
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -97,7 +101,13 @@ def measure(arr, cx, cy):
     x1 = int(bx.max()) if len(bx) else int(xs.max())
     y0 = int(by.min()) if len(by) else int(ys.min())
     y1 = int(by.max()) if len(by) else int(ys.max())
+    width = x1 - x0 + 1
+    height = y1 - y0 + 1
     fill = np.median(arr[interior], axis=0)
+    fills = [
+        [int(channel) for channel in color]
+        for color in measure_bands(arr, x0, y0, width, height)
+    ]
     # Ribbon gold just under the box.
     gy0, gy1 = y1 + 1, min(h - 1, y1 + 55)
     gx0, gx1 = x0, x1
@@ -111,9 +121,10 @@ def measure(arr, cx, cy):
     return {
         "x": x0,
         "y": y0,
-        "w": x1 - x0 + 1,
-        "h": y1 - y0 + 1,
+        "w": width,
+        "h": height,
         "fill": [int(c) for c in fill],
+        "fills": fills,
         "gold": gold_n,
         "area": int(interior.sum()),
     }
@@ -156,9 +167,10 @@ def main():
             print(name, "NO BOX")
             continue
         fill = box["fill"]
+        bands = " ".join(hex_color(color) for color in box["fills"]) or hex_color(fill)
         print(
             f"{name} x={box['x']} y={box['y']} w={box['w']} h={box['h']} "
-            f"fill={hex_color(fill)} faction={faction_key(fill)} text={text_color(fill)} "
+            f"fill={hex_color(fill)} fills={bands} faction={faction_key(fill)} text={text_color(fill)} "
             f"gold={box['gold']} area={box['area']}",
             flush=True,
         )
