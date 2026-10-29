@@ -2,19 +2,24 @@
 """Transcribe OCR hits and traced arrows into ocr/out/chart.ts.
 
 The page reads src/flow/chart.ts. This script writes a draft beside the other
-OCR products. Copying that draft over the page file drops the hand edits
-listed in README.md.
+OCR products. Each work's color is the top-to-bottom band list from
+bands.measure_bands. Copying that draft over the page file drops the hand
+edits listed in README.md.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bands import measure_bands
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE / "out"
@@ -188,6 +193,16 @@ def hex_color(fill: list[int]) -> str:
     return "#{:02x}{:02x}{:02x}".format(*[int(c) for c in fill])
 
 
+def color_bands(fills: list | None, fill: list[int] | None) -> list[str]:
+    """Top-to-bottom hexes. `fills` is the band list; `fill` is the legacy median."""
+    source = fills if fills else ([fill] if fill else [[248, 246, 240]])
+    return [hex_color(item) for item in source]
+
+
+def ts_color(colors: list[str]) -> str:
+    return "[" + ", ".join(ts_str(color) for color in colors) + "]"
+
+
 def faction_key(fill: list[int]) -> str:
     snapped = [min(255, int(round(int(c) / 32.0) * 32)) for c in fill]
     return "#{:02x}{:02x}{:02x}".format(*snapped)
@@ -306,7 +321,7 @@ def main() -> None:
             "publication": publication,
             "kind": kind,
             "faction": faction_key(fill),
-            "color": hex_color(fill),
+            "color": color_bands(node.get("fills"), fill),
             "text": text_color(fill),
             "ribbon": bool(node["ribbon"]),
             "era": era,
@@ -327,6 +342,7 @@ def main() -> None:
     # Shortcut badges. Pink F and dark-red FT come from the tracer.
     # Corners of ordinary boxes (badge 20 and 21) are not badges.
     kept_badges = []
+    badges_without_fills = []
     for badge in badges:
         if badge["id"] in {"badge-20", "badge-21"}:
             print("drop false badge", badge["id"], badge["box"])
@@ -349,7 +365,7 @@ def main() -> None:
             "publication": letters,
             "kind": "shortcut",
             "faction": novel["faction"],
-            "color": hex_color(fill),
+            "color": color_bands(badge.get("fills"), fill),
             "text": "#1c1917" if letters == "F" else "#f6f1e6",
             "ribbon": False,
             "era": novel["era"],
@@ -363,6 +379,8 @@ def main() -> None:
         }
         kept_badges.append(record)
         by_id[record["id"]] = record
+        if not badge.get("fills"):
+            badges_without_fills.append(record)
     print("kept tracer badges", len(kept_badges), {b["letters"] for b in kept_badges})
 
     print("loading chart for stubs and zone borders...")
@@ -381,13 +399,15 @@ def main() -> None:
         novel = by_id[novel_id]
         print(f"stub {letters} {novel_id} -> {found}")
         x0, y0, x1, y1 = found
+        measured = measure_bands(arr, int(x0), int(y0), int(x1 - x0), int(y1 - y0))
+        colors = [hex_color(color) for color in measured] or list(novel["color"])
         record = {
             "id": f"shortcut-{letters.lower()}",
             "title": novel["title"],
             "publication": letters,
             "kind": "shortcut",
             "faction": novel["faction"],
-            "color": novel["color"],
+            "color": colors,
             "text": novel["text"],
             "ribbon": False,
             "era": novel["era"],
@@ -402,8 +422,19 @@ def main() -> None:
         extra.append(record)
         by_id[record["id"]] = record
 
+    for record in badges_without_fills:
+        # Older tracer JSON has only the median. Measure that badge box with the same function.
+        measured = measure_bands(arr, record["x"], record["y"], record["w"], record["h"])
+        colors = [hex_color(color) for color in measured]
+        if colors:
+            record["color"] = colors
+
     works.extend(kept_badges)
     works.extend(extra)
+    print(
+        "color bands",
+        {n: sum(1 for work in works if len(work["color"]) == n) for n in sorted({len(work["color"]) for work in works})},
+    )
 
     print("scanning zone borders...")
     hlines = collect_hlines(black)
@@ -554,7 +585,8 @@ def main() -> None:
         "  publication: string;",
         "  kind: WorkKind;",
         "  faction: string;",
-        "  color: string;",
+        "  /** Faction fills inside the poster box, top to bottom. One entry is one band. */",
+        "  color: readonly string[];",
         "  text: string;",
         "  ribbon: boolean;",
         "  era: EraBand;",
@@ -593,7 +625,7 @@ def main() -> None:
             + f" publication: {ts_str(work['publication'])},"
             + f" kind: {ts_str(work['kind'])},"
             + f" faction: {ts_str(work['faction'])},"
-            + f" color: {ts_str(work['color'])},"
+            + f" color: {ts_color(work['color'])},"
             + f" text: {ts_str(work['text'])},"
             + f" ribbon: {'true' if work['ribbon'] else 'false'},"
             + f" era: {ts_str(work['era'])},"

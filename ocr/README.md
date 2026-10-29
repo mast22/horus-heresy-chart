@@ -23,12 +23,13 @@ The Swift files import AppKit. They run on macOS. The Python steps can run on an
 | File | Role |
 | --- | --- |
 | `ocr.swift` | Tile the poster and run Vision OCR. |
-| `extract_nodes.py` | Cluster hits into work boxes and classify the publication line. |
+| `bands.py` | Measure the horizontal faction fills inside a box, top to bottom. This is the only band measurement. |
+| `extract_nodes.py` | Cluster hits into work boxes, classify the publication line, and record those fills. |
 | `reocr.swift` | Re-read each box at 3× so titles split by a tile boundary come back clean. |
 | `extract_edges.py` | Trace red, blue, and green arrows and detect shortcut badges. |
-| `build_graph.py` | Emit `ocr/out/chart.ts` from those products. |
+| `build_graph.py` | Emit `ocr/out/chart.ts` from those products. `color` is the band list. |
 | `scan_boxes.py` | Pair black horizontal rules and report boxes the seeder missed. |
-| `measure_new.py` | Measure a fixed list of poster seeds and walk the arrow that leaves each one. |
+| `measure_new.py` | Measure a fixed list of poster seeds, including their fills, and walk the arrow that leaves each one. |
 
 A headless Chrome check was used to confirm the running page. It does not read the poster or classify nodes, so it is not part of this folder.
 
@@ -65,7 +66,7 @@ python3 ocr/measure_new.py
 
 `scan_boxes.py` prints how many horizontal rules it paired, which existing novels it failed to cover, and one `NEW` line per box that does not overlap a work already in the chart. Crops land in `ocr/out/unmatched-boxes/box-NNN.jpg`. The original scan paired 145 boxes and missed 0 known novels. The in-body discoveries were the four Siege novels. A tank under a STORYLINE label and the footer emblems (page y greater than about 11618) were also paired. They are not works.
 
-`measure_new.py` prints a measured rectangle for each hardcoded seed, then the node a colour walk reached. Seeds are poster pixels for this chart (Misbegotten, Terminus, Chamber, Prince of Blood, Scions of the Storm, the second SC and AE badges, and Terra Books 3–6). A new poster needs new seeds. The walk can stop on a vertical spine. Confirm with the pixel check in the debug section before adding an edge.
+`measure_new.py` prints a measured rectangle for each hardcoded seed, then the node a colour walk reached. The rectangle line includes `fills`, the band hexes from `measure_bands`, and the older single `fill` median. Seeds are poster pixels for this chart (Misbegotten, Terminus, Chamber, Prince of Blood, Scions of the Storm, the second SC and AE badges, and Terra Books 3–6). A new poster needs new seeds. The walk can stop on a vertical spine. Confirm with the pixel check in the debug section before adding an edge.
 
 ## Products
 
@@ -95,6 +96,7 @@ python3 ocr/measure_new.py
   "box": [1100, 4600, 1480, 4780],
   "ribbon": true,
   "fill": [180, 40, 40],
+  "fills": [[180, 40, 40]],
   "lines": ["MECHANICUM", "Book 9"],
   "cx": 1290.0,
   "cy": 4690.0
@@ -102,6 +104,8 @@ python3 ocr/measure_new.py
 ```
 
 `box` is `[x0, y0, x1, y1]` in page pixels, including the black border. `id` is a slug of the first-pass title, cut at 48 characters. A repeated slug gets `-2`, `-3`, and so on, in top-to-bottom then left-to-right order. Tile-boundary garbage stays in the id (`the-maste-f-mankin`, `prospero-ero-burns`, `fulgrim-rim`). Edges use that id. Leave it in place if you already have an `edges.json` that points at it.
+
+`fills` is the faction colours inside that box, top to bottom. Each entry is `[r, g, b]`. One fill is a list of one colour. A book about several legions is several entries, in order. `fill` is the older single median and is not that list. `nodes-with-badges.json` uses the same two fields on each shortcut badge.
 
 `reocr.swift` reads `id` and `box` and ignores every other field, so you can pass `nodes.json` straight through. Each result is `{ "id", "lines": [{ "text", "x", "y", "w", "h", "conf" }] }`. Line geometry is in page pixels, at the original scale, even though the recogniser saw a 3× image.
 
@@ -120,7 +124,7 @@ python3 ocr/measure_new.py
 
 `cls` is `primary`, `secondary`, or `tertiary`. `dist` is the skeleton length in pixels. `nodes-with-badges.json` is the work list plus shortcut badges, with boxes shifted back to page coordinates.
 
-`chart.ts` exports `works`, `edges`, `zones`, and `buildChartGraph()`.
+`chart.ts` exports `works`, `edges`, `zones`, and `buildChartGraph()`. Each work's `color` is a readonly string array, one hex per band, top to bottom. `faction` and `text` stay one hex each.
 
 ## How a work is classified
 
@@ -144,11 +148,13 @@ A gold ribbon is more than 70 gold pixels in the 52px strip under the box. Gold 
 
 `build_graph.py` replaces the title and the publication with the 3× read when that read is usable. An arrow still counts only on the publication line. A bullet on some other line, such as a decorative `•..` inside the box, does not turn a novel into a short story. Mechanicum stays `Book 9`, kind `novel`.
 
-Fill colour is the median of the interior after black and near-white pixels are removed. Faction snaps each channel to a multiple of 32. Ink is `#1c1917` when the fill luminance is above 155, and `#f6f1e6` otherwise.
+`bands.py` measures the fills. `extract_nodes.py` calls `measure_bands` on each work box and writes `fills`. `build_graph.py` copies that list into `color` as hex strings. A work written before `fills` existed falls back to a one-element list of the legacy `fill`. Faction still snaps each channel of that single `fill` to a multiple of 32. Ink is `#1c1917` when that fill's luminance is above 155, and `#f6f1e6` otherwise. The page does not paint from `text`. `scripts/check-colors.ts` calls the same `measure_bands` function and does not keep a second copy of the measurement.
+
+One fill that spans the box stays one colour. A black fill stays black; the light type on it is not a colour. Glyph ink, the black border, gold ribbons, antialiased fringes, and the page showing in a rounded corner are not colours. A stripe about 6px tall that still spans the node counts. A pale cream or light-gray fill counts when it fills the band. Adjacent rows of the same fill are one band. A page-like cap is not merged into a real fill, so a cream badge is not trimmed away with the paper.
 
 Era is `siege-of-terra` when the box centre x is at least 9220 or the publication starts with `Terra Book`. Everything else in the body is `horus-heresy`.
 
-Shortcut letters on this poster are F, FT, SC, OE, W, R, and AE. The tracer keeps pink badges as F and dark-red badges as FT. `badge-20` and `badge-21` were corners of ordinary boxes and are dropped. SC, R, OE, W, and AE use measured rectangles in `build_graph.py`, including the SC box `[3048, 6071, 3109, 6121]`. A zone border had widened the automatic bbox for that badge. Each badge's `standsFor` is the novel id in `SHORTCUT_NOVELS`.
+Shortcut letters on this poster are F, FT, SC, OE, W, R, and AE. The tracer keeps pink badges as F and dark-red badges as FT. `badge-20` and `badge-21` were corners of ordinary boxes and are dropped. SC, R, OE, W, and AE use measured rectangles in `build_graph.py`, including the SC box `[3048, 6071, 3109, 6121]`. A zone border had widened the automatic bbox for that badge. Each of those five rectangles is measured with `measure_bands` on its own box. The colour is not copied from the novel. F and FT use `fills` from the tracer when that field is present. An older badge file has only `fill`, and `build_graph.py` then measures the badge box the same way. Each badge's `standsFor` is the novel id in `SHORTCUT_NOVELS`.
 
 ## How an arrow is classified
 
@@ -296,7 +302,7 @@ Run `node --experimental-strip-types scripts/check-graph.ts` against the shipped
 
 ## Hand edits the draft does not contain
 
-`build_graph.py` already removes the Bringer → Magisterium primary and adds the three `ensure()` edges above. It also hardcodes the five measured shortcut stubs. A fresh draft still needs the rest of this list before it can replace `src/flow/chart.ts`.
+`build_graph.py` already removes the Bringer → Magisterium primary and adds the three `ensure()` edges above. It also hardcodes the five measured shortcut stubs and writes every `color` array from `measure_bands`. Colours are not a hand edit. A fresh draft still needs the rest of this list before it can replace `src/flow/chart.ts`.
 
 Works added from the border scan and the seed measurements:
 

@@ -7,11 +7,15 @@ See README.md in this directory.
 
 import json
 import re
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bands import measure_bands
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -361,12 +365,20 @@ def main():
         if bw > 700 or bh > 280 or bw < 36 or bh < 28:
             skipped += 1
             continue
+        x0, y0, x1, y1 = border
+        fills = [
+            [int(channel) for channel in color]
+            for color in measure_bands(arr, x0, y0, x1 - x0, y1 - y0)
+        ]
         info.update(
             {
                 "textBox": [round(v, 1) for v in text_box],
                 "box": border,
                 "ribbon": bool(has_ribbon(arr, border)),
+                # fill is the legacy single median, used for faction and ink.
+                # fills is every horizontal faction band, top to bottom.
                 "fill": fill_color(arr, border),
+                "fills": fills,
                 "lines": texts,
             }
         )
