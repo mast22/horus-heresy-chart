@@ -4214,21 +4214,9 @@ export const edges: readonly ChartEdge[] = [
     connection: "primary",
   },
   {
-    id: "p14-wolf-king-allegiance",
-    source: "wolf-king",
-    target: "allegiance",
-    connection: "primary",
-  },
-  {
     id: "p16-rebirth-scars",
     source: "rebirth",
     target: "scars",
-    connection: "primary",
-  },
-  {
-    id: "p17-allegiance-daemonology",
-    source: "allegiance",
-    target: "daemonology",
     connection: "primary",
   },
   {
@@ -4259,12 +4247,6 @@ export const edges: readonly ChartEdge[] = [
     id: "p25-badge-10-vengeful-spirit",
     source: "badge-10",
     target: "vengeful-spirit",
-    connection: "primary",
-  },
-  {
-    id: "p26-allegiance-wolf-king",
-    source: "allegiance",
-    target: "wolf-king",
     connection: "primary",
   },
   {
@@ -4504,12 +4486,6 @@ export const edges: readonly ChartEdge[] = [
     connection: "primary",
   },
   {
-    id: "p73-the-long-night-prince-of-crows",
-    source: "the-long-night",
-    target: "prince-of-crows",
-    connection: "primary",
-  },
-  {
     id: "p74-virtues-of-the-sons-sins-of-the-father-ther",
     source: "virtues-of-the-sons",
     target: "sins-of-the-father-ther",
@@ -4534,12 +4510,6 @@ export const edges: readonly ChartEdge[] = [
     connection: "primary",
   },
   {
-    id: "p79-the-heart-of-the-pharos-a-safe-and-shadowe-shadowed-place",
-    source: "the-heart-of-the-pharos",
-    target: "a-safe-and-shadowe-shadowed-place",
-    connection: "primary",
-  },
-  {
     id: "p80-the-dark-king-king-22-artefacts-and-or-50",
     source: "the-dark-king-king-22",
     target: "artefacts-and-or-50",
@@ -4549,12 +4519,6 @@ export const edges: readonly ChartEdge[] = [
     id: "p81-artefacts-and-or-50-vulkan-lives",
     source: "artefacts-and-or-50",
     target: "vulkan-lives",
-    connection: "primary",
-  },
-  {
-    id: "p82-the-laurel-of-defiance-the-heart-of-the-pharos",
-    source: "the-laurel-of-defiance",
-    target: "the-heart-of-the-pharos",
     connection: "primary",
   },
   {
@@ -4588,12 +4552,6 @@ export const edges: readonly ChartEdge[] = [
     connection: "primary",
   },
   {
-    id: "p88-the-first-heretic-badge-15",
-    source: "the-first-heretic",
-    target: "badge-15",
-    connection: "primary",
-  },
-  {
     id: "p89-the-first-heretic-fear-to-tread",
     source: "the-first-heretic",
     target: "fear-to-tread",
@@ -4615,12 +4573,6 @@ export const edges: readonly ChartEdge[] = [
     id: "p92-sons-of-the-forge-old-earth",
     source: "sons-of-the-forge",
     target: "old-earth",
-    connection: "primary",
-  },
-  {
-    id: "p93-vulkan-lives-embers-of-extinction",
-    source: "vulkan-lives",
-    target: "embers-of-extinction",
     connection: "primary",
   },
   {
@@ -4813,12 +4765,6 @@ export const edges: readonly ChartEdge[] = [
     id: "s129-badge-11-nemesis",
     source: "badge-11",
     target: "nemesis",
-    connection: "secondary",
-  },
-  {
-    id: "s130-lost-sons-all-that-remains",
-    source: "lost-sons",
-    target: "all-that-remains",
     connection: "secondary",
   },
   {
@@ -5113,18 +5059,6 @@ export const edges: readonly ChartEdge[] = [
     id: "m-betrayer-the-eightfold-path",
     source: "betrayer",
     target: "the-eightfold-path",
-    connection: "primary",
-  },
-  {
-    id: "m-mark-of-calth-heart-of-the-conqueror",
-    source: "mark-of-calth",
-    target: "heart-of-the-conqueror",
-    connection: "primary",
-  },
-  {
-    id: "m-heart-of-the-conqueror-the-revelation-of-theword",
-    source: "heart-of-the-conqueror",
-    target: "the-revelation-of-theword",
     connection: "primary",
   },
   {
