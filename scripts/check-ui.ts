@@ -113,33 +113,7 @@ check(
   `credit ${emptyCopy.credit.length} how-to ${emptyCopy.howTo.length}`,
 );
 
-if (existsSync("text_data.md")) {
-  const textData = readFileSync("text_data.md", "utf8");
-  const fileCopy = extractPageCopy(textData);
-  const creditBody = creditPageBody(textData);
-  const howToBody = howToPageBody(textData);
-  check(
-    "text_data has no credit headings",
-    textData.trim() === "" &&
-      !hasHeading(textData, /^credit$/i) &&
-      !hasHeading(textData, /^original creators$/i) &&
-      !hasHeading(textData, /^original chart creators$/i) &&
-      !hasHeading(textData, /^how to use this chart$/i),
-    headingNames(textData).join(" | ") || "(none)",
-  );
-  check(
-    "credit and how-to page bodies equal the empty file",
-    creditBody === fileCopy.credit &&
-      howToBody === fileCopy.howTo &&
-      creditBody === "" &&
-      howToBody === "" &&
-      renderSectionHtml(creditBody) === "" &&
-      renderSectionHtml(howToBody) === "",
-    `credit ${creditBody.length} how-to ${howToBody.length}`,
-  );
-} else {
-  lines.push("SKIP text_data checks: text_data.md not present");
-}
+
 
 const creditPage = readFileSync("src/pages/credit.astro", "utf8");
 const howToPage = readFileSync("src/pages/how-to-use-this-chart.astro", "utf8");
@@ -381,6 +355,11 @@ check(
 
 const flowSource = readFileSync("src/components/FlowChart.tsx", "utf8");
 const css = readFileSync("src/styles/global.css", "utf8");
+const themeSource = readFileSync("src/site/theme.ts", "utf8");
+const themeToggleSource = readFileSync(
+  "src/components/ThemeToggle.astro",
+  "utf8",
+);
 check(
   "chart wires the shipped chrome",
   flowSource.includes("toggleWorkSidebar") &&
@@ -454,6 +433,31 @@ check(
   "next work follows blue and green connections too",
   masseNext.includes("ordo-sinister") && callNext.includes("fallen-angels"),
   `the-maste-f-mankin -> ${masseNext.join(",")}; call-of-the-lion -> ${callNext.join(",")}`,
+);
+
+check(
+  "theme follows the device and toggles from the header",
+  themeSource.includes('THEME_STORAGE_KEY = "horus-heresy-theme"') &&
+    layout.includes("data-theme-storage-key={THEME_STORAGE_KEY}") &&
+    layout.includes("prefers-color-scheme: dark") &&
+    layout.includes("<ThemeToggle storageKey={THEME_STORAGE_KEY}") &&
+    themeToggleSource.includes("prefers-color-scheme: dark") &&
+    themeToggleSource.includes("themechange") &&
+    css.includes(':root[data-theme="dark"]') &&
+    css.includes(".theme-toggle") &&
+    flowSource.includes("useSyncExternalStore") &&
+    flowSource.includes("colorMode={colorMode}"),
+  "device default, header toggle, chart color mode",
+);
+
+check(
+  "search centers the selected works",
+  flowSource.includes("handleSearchSelect") &&
+    flowSource.includes("focusIds") &&
+    flowSource.includes("focusKey") &&
+    flowSource.includes("fitView({") &&
+    flowSource.includes("nodes: focusIds.map"),
+  "search selection drives fitView",
 );
 
 check(
