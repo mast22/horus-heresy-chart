@@ -4352,12 +4352,6 @@ export const edges: readonly ChartEdge[] = [
     connection: "primary",
   },
   {
-    id: "p38-the-reflection-crack-d-riven",
-    source: "the-reflection-crack-d",
-    target: "riven",
-    connection: "primary",
-  },
-  {
     id: "p39-riven-the-keys-of-hel",
     source: "riven",
     target: "the-keys-of-hel",
@@ -4579,12 +4573,6 @@ export const edges: readonly ChartEdge[] = [
     id: "p76-strike-and-fade-unforged",
     source: "strike-and-fade",
     target: "unforged",
-    connection: "primary",
-  },
-  {
-    id: "p77-the-dark-king-king-22-strike-and-fade",
-    source: "the-dark-king-king-22",
-    target: "strike-and-fade",
     connection: "primary",
   },
   {

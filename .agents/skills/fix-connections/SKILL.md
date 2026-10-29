@@ -38,19 +38,22 @@ them.
    assuming a direction. The poster settles it.
 
 3. Inspect the current graph. Endpoint names are title substrings or exact
-   ids; an ambiguous title lists the candidates and exits.
+   ids; an ambiguous title lists the candidates and exits. Pass every title in
+   one invocation — do not run the script once per box.
 
    ```bash
    node --experimental-strip-types scripts/fix-connections/inspect.ts \
-     "The Last Remembrancer" --out
+     "The Reflection Crack'd" "Riven" "The Dark King" "Strike and Fade"
    ```
 
-4. Crop only when the poster is the only way to know the direction. Skip it
-   when the user already gave an exact `Source -> Target:class` and the change
-   only adds or asserts that edge. Crop when:
+4. Crop only when the poster is the only way to know the direction. Images cost
+   far more context than commands, so skip the crop whenever the user's
+   statement already settles the question. Skip when the user gave an exact
+   `Source -> Target:class`, or asserted an edge is absent (e.g. "X does not
+   have a connection to Y") and the fix only deletes that edge. Crop when:
 
    - the user did not state the direction;
-   - an existing edge is being reversed or removed;
+   - an existing edge is being reversed;
    - `--validate` warns about an opposite pair;
    - two nodes hang off one spine and the owner of a branch is unclear.
 
@@ -84,6 +87,13 @@ them.
    `the-maste-f-mankin`, `child-ofnight`, and `the-last-remembrancer-ancer-16`
    are OCR slugs; keep them exactly.
 
+   Locate the object with the ids printed by `inspect.ts`, then read/edit only
+   those lines — never dump a large slice of `chart.ts`:
+
+   ```bash
+   rg -n 'id: "(p38|p77)-' src/flow/chart.ts
+   ```
+
 6. Assert the result with the same script. It exits non-zero on a mismatch.
 
    ```bash
@@ -96,19 +106,40 @@ them.
 
 7. Spot-check the crop again if the fix changed which node owns a branch.
 
-8. Validate the project:
+8. Validate the project. Filter the long spot-check dump to just the result and
+   any failures:
 
    ```bash
    npm run lint
    npm run check
-   node --experimental-strip-types scripts/check-graph.ts
+   node --experimental-strip-types scripts/check-graph.ts 2>&1 | rg "RESULT|FAIL"
    ```
+
+   Only act on diagnostics in the files you changed; unrelated pre-existing
+   errors are not part of this task.
 
 9. Suggest a commit such as:
 
    ```text
    fix: correct chart connection directions
    ```
+
+## Fast paths
+
+Removing one or more false edges that the user asserted are absent:
+
+```bash
+node --experimental-strip-types scripts/fix-connections/inspect.ts \
+  "The Reflection Crack'd" "Riven" "The Dark King" "Strike and Fade"
+rg -n 'id: "(p38|p77)-' src/flow/chart.ts          # ids from inspect output
+# delete the matching edge objects
+node --experimental-strip-types scripts/fix-connections/inspect.ts \
+  --reject "The Reflection Crack'd -> Riven" \
+  --reject "The Dark King -> Strike and Fade" \
+  --validate
+node --experimental-strip-types scripts/check-graph.ts 2>&1 | rg "RESULT|FAIL"
+npm run lint
+```
 
 ## Direction pitfalls
 
@@ -118,7 +149,8 @@ them.
   spine that leaves The Flight of the Eisenstein. Neither points at the other.
 - **Opposite pairs.** `inspect.ts --validate` warns when the same pair appears
   in both directions. That is usually a broken direction, not two real edges.
-  Crop the pair and keep the arrowhead that the poster shows.
+  Crop the pair and keep the arrowhead that the poster shows. Warnings about
+  pairs you did not touch are pre-existing noise; leave them alone.
 - **Long jumps.** `image-recognition/build_graph.py` drops traced edges longer
   than 3200px that change row by more than 180px. If a long primary is missing,
   check the "long jumps removed" list in `image-recognition/README.md` before
@@ -133,10 +165,11 @@ them.
 
 | Command | Purpose |
 | ------- | ------- |
-| `node --experimental-strip-types scripts/fix-connections/inspect.ts <title> [--out\|--in]` | List a node's incoming and outgoing edges. |
+| `node --experimental-strip-types scripts/fix-connections/inspect.ts <title> [<title> ...] [--out\|--in]` | List each node's incoming and outgoing edges (pass all titles at once). |
 | `inspect.ts --expect "<A -> B[:class]>" ...` | Assert an edge exists; repeatable. |
 | `inspect.ts --reject "<A -> B[:class]>" ...` | Assert an edge is absent; repeatable. |
 | `inspect.ts --validate` | Check dangling endpoints, duplicates, self-loops, and opposite pairs. |
+| `rg -n '<edge-id>' src/flow/chart.ts` | Find the edge object to edit without reading the file. |
 | `python3 scripts/fix-connections/crop.py <titles...> [--pad N] [--out PATH]` | Crop the poster around the nodes for visual verification. |
 | `node --experimental-strip-types scripts/check-graph.ts` | Run the repository graph regression checks. |
 

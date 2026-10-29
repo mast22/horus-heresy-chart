@@ -375,6 +375,25 @@ check(
   `${flightOfEisenstein?.title ?? "missing"} -> ${childOfNight?.title ?? "missing"}`,
 );
 
+const reflectionCrackd = graph.works.find(
+  (work) => work.id === "the-reflection-crack-d",
+);
+const riven = graph.works.find((work) => work.id === "riven");
+const darkKing = graph.works.find(
+  (work) => work.id === "the-dark-king-king-22",
+);
+const strikeAndFade = graph.works.find((work) => work.id === "strike-and-fade");
+check(
+  "reflection crack'd is not primary to riven",
+  !hasEdge(reflectionCrackd?.id, riven?.id, "primary"),
+  `${reflectionCrackd?.title ?? "missing"} -> ${riven?.title ?? "missing"}`,
+);
+check(
+  "dark king is not primary to strike and fade",
+  !hasEdge(darkKing?.id, strikeAndFade?.id, "primary"),
+  `${darkKing?.title ?? "missing"} -> ${strikeAndFade?.title ?? "missing"}`,
+);
+
 const outcastDead = graph.works.find((work) => work.id === "the-outcast-dead");
 const wolfHunt = graph.works.find((work) => work.id === "wolt-hunt");
 const furyOfMagnus = graph.works.find(

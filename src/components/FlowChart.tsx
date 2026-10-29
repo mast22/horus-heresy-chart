@@ -4,7 +4,6 @@ import {
   Controls,
   type Edge,
   type EdgeProps,
-  getSmoothStepPath,
   Handle,
   type Node,
   type NodeProps,
@@ -25,6 +24,7 @@ import {
   type Connection,
 } from "../flow/chart";
 import { nextWorkIds } from "../flow/navigation";
+import { type Point, routeWorkEdge } from "../flow/routing";
 import { SearchBox } from "./SearchBox";
 import { displayTitle, WorkFace } from "./WorkFace";
 
@@ -146,6 +146,8 @@ const ARROW_WIDTH = 26;
 const DIAMOND_LENGTH = 28;
 const DIAMOND_WIDTH = 20;
 const SEMICIRCLE_RADIUS = 11;
+/** Rounded bend so a turning arrow reads as a turn, not a crossing. */
+const BEND_RADIUS = 16;
 
 type TippedEdgeData = {
   connection: Connection;
@@ -220,33 +222,80 @@ const SHAFT_INSET: Record<Connection, number> = {
   tertiary: 0,
 };
 
+/** Trim the last `inset` pixels off a route so the stroke ends behind the tip. */
+function insetRoute(points: Point[], inset: number): Point[] {
+  if (inset <= 0 || points.length < 2) return points;
+  const last = points[points.length - 1];
+  const prev = points[points.length - 2];
+  const dx = last.x - prev.x;
+  const dy = last.y - prev.y;
+  const length = Math.hypot(dx, dy);
+  if (length === 0) return points;
+  const cut = Math.min(inset, length);
+  const result = points.slice(0, -1);
+  result.push({
+    x: last.x - (dx / length) * cut,
+    y: last.y - (dy / length) * cut,
+  });
+  return result;
+}
+
+/** Build an SVG path through axis-aligned waypoints with rounded corners. */
+function roundedOrthogonalPath(points: Point[], radius: number): string {
+  if (points.length === 0) return "";
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    const next = points[i + 1];
+    const inLen = Math.hypot(curr.x - prev.x, curr.y - prev.y);
+    const outLen = Math.hypot(next.x - curr.x, next.y - curr.y);
+    const r = Math.min(radius, inLen / 2, outLen / 2);
+    const inX = curr.x - ((curr.x - prev.x) / inLen) * r;
+    const inY = curr.y - ((curr.y - prev.y) / inLen) * r;
+    const outX = curr.x + ((next.x - curr.x) / outLen) * r;
+    const outY = curr.y + ((next.y - curr.y) / outLen) * r;
+    d += ` L ${inX} ${inY} Q ${curr.x} ${curr.y} ${outX} ${outY}`;
+  }
+  const last = points[points.length - 1];
+  d += ` L ${last.x} ${last.y}`;
+  return d;
+}
+
+/** Routes are static (nodes never move), so compute each one only once. */
+const routeCache = new Map<string, Point[]>();
+
 function TippedEdge({
   id,
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
   targetY,
-  sourcePosition,
   targetPosition,
   data,
   style,
 }: EdgeProps<Edge<TippedEdgeData, "tipped">>) {
   const connection = data?.connection ?? "primary";
-  const shaftTarget = place(
-    targetX,
-    targetY,
-    targetPosition,
-    SHAFT_INSET[connection],
-    0,
-  );
-  const [edgePath] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    targetX: shaftTarget.x,
-    targetY: shaftTarget.y,
-    sourcePosition,
-    targetPosition,
-  });
+
+  // Routes are static, so compute each one once. The handle coordinates are in
+  // the key to guard against React Flow's first render, before nodes measure.
+  const routeKey = `${source}|${sourceX}|${sourceY}|${target}|${targetX}|${targetY}`;
+  let route = routeCache.get(routeKey);
+  if (route === undefined) {
+    route = routeWorkEdge(
+      source,
+      target,
+      { x: sourceX, y: sourceY },
+      { x: targetX, y: targetY },
+    );
+    routeCache.set(routeKey, route);
+  }
+
+  const shaftPoints = insetRoute(route, SHAFT_INSET[connection]);
+  const edgePath = roundedOrthogonalPath(shaftPoints, BEND_RADIUS);
 
   return (
     <>
