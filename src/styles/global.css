@@ -396,7 +396,9 @@ header nav a[aria-current="page"] {
 }
 
 .react-flow__node-work,
-.react-flow__node-zone {
+.react-flow__node-zone,
+.react-flow__node-era-divider,
+.react-flow__node-era-backdrop {
   padding: 0;
   border: none;
   background: transparent;
@@ -593,4 +595,20 @@ header nav a[aria-current="page"] {
   letter-spacing: 0.04em;
   line-height: 1.2;
   text-transform: uppercase;
+}
+
+.siege-backdrop {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  background: rgba(244, 200, 88, 0.22);
+  pointer-events: none;
+}
+
+.era-divider {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  background: #c08a2e;
+  pointer-events: none;
 }

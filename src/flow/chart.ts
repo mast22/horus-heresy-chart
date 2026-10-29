@@ -5754,6 +5754,22 @@ export const zones: readonly ConflictZone[] = [
   },
 ];
 
+/** Thin divider between the Horus Heresy and the Siege of Terra (poster pixels). */
+export const ERA_DIVIDER = {
+  x: 9323,
+  y: 7548,
+  w: 2,
+  h: 3175,
+} as const;
+
+/** Transparent backdrop behind the Siege of Terra column. */
+export const SIEGE_OF_TERRA_BACKDROP = {
+  x: 9325,
+  y: 7548,
+  w: 2352,
+  h: 3175,
+} as const;
+
 export function buildChartGraph() {
   return { works, edges, zones };
 }

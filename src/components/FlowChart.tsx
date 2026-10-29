@@ -22,6 +22,8 @@ import {
   buildChartGraph,
   type ChartWork,
   type Connection,
+  ERA_DIVIDER,
+  SIEGE_OF_TERRA_BACKDROP,
 } from "../flow/chart";
 import { nextWorkIds } from "../flow/navigation";
 import { SearchBox } from "./SearchBox";
@@ -70,9 +72,19 @@ function ZoneNode({ data }: NodeProps<Node<ZoneData, "zone">>) {
   );
 }
 
+function EraDividerNode() {
+  return <div className="era-divider" />;
+}
+
+function SiegeBackdropNode() {
+  return <div className="siege-backdrop" />;
+}
+
 const nodeTypes = {
   work: WorkNode,
   zone: ZoneNode,
+  "era-divider": EraDividerNode,
+  "era-backdrop": SiegeBackdropNode,
 };
 
 const STROKE: Record<Connection, string> = {
@@ -188,6 +200,35 @@ const edgeTypes = {
 
 function chartNodes(): Node[] {
   const { works, zones } = buildChartGraph();
+  const eraNodes: Node[] = [
+    {
+      id: "siege-backdrop",
+      type: "era-backdrop",
+      position: { x: SIEGE_OF_TERRA_BACKDROP.x, y: SIEGE_OF_TERRA_BACKDROP.y },
+      data: {},
+      style: {
+        width: SIEGE_OF_TERRA_BACKDROP.w,
+        height: SIEGE_OF_TERRA_BACKDROP.h,
+      },
+      draggable: false,
+      selectable: false,
+      connectable: false,
+      className: "nopan",
+      zIndex: 0,
+    },
+    {
+      id: "era-divider",
+      type: "era-divider",
+      position: { x: ERA_DIVIDER.x, y: ERA_DIVIDER.y },
+      data: {},
+      style: { width: ERA_DIVIDER.w, height: ERA_DIVIDER.h },
+      draggable: false,
+      selectable: false,
+      connectable: false,
+      className: "nopan",
+      zIndex: 0,
+    },
+  ];
   const zoneNodes: Node[] = zones.map((zone) => ({
     id: zone.id,
     type: "zone",
@@ -218,7 +259,7 @@ function chartNodes(): Node[] {
     className: "nopan",
     zIndex: work.kind === "shortcut" ? 3 : 2,
   }));
-  return [...zoneNodes, ...workNodes];
+  return [...eraNodes, ...zoneNodes, ...workNodes];
 }
 
 function chartEdges(): Edge[] {
