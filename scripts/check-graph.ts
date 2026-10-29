@@ -482,6 +482,43 @@ check(
   hasEdge(horusRising?.id, wolfOfAsh?.id, "tertiary"),
   `${horusRising?.title ?? "missing"} -> ${wolfOfAsh?.title ?? "missing"}`,
 );
+const correctedConnections = [
+  ["a-safe-and-shadowe-shadowed-place", "pharos", "primary"],
+  ["the-unremembered-empire", "the-laurel-of-defiance", "primary"],
+  ["the-unremembered-empire", "stratagem", "primary"],
+  ["the-unburdened", "ruinstorm", "primary"],
+  ["a-rose-watered-with-blood", "the-lost-and-the-damned", "primary"],
+  ["mark-of-calth", "perpetual", "primary"],
+  ["praetorian-of-dorn", "now-peals-midnight", "primary"],
+  ["legion", "the-serpent-beneath", "primary"],
+  ["know-no-fear", "liar-s-due", "secondary"],
+  ["know-no-fear", "hubris-of-monarchia", "secondary"],
+  ["the-crimson-fist", "the-unremembered-empire", "primary"],
+] as const;
+for (const [source, target, connection] of correctedConnections) {
+  check(
+    `${source} ${connection} to ${target}`,
+    hasEdge(source, target, connection),
+    `${source} -> ${target}`,
+  );
+}
+check(
+  "a rose watered with blood no longer points to perpetual",
+  !graph.edges.some(
+    (edge) =>
+      edge.source === "a-rose-watered-with-blood" &&
+      edge.target === "perpetual",
+  ),
+  "a-rose-watered-with-blood -> perpetual",
+);
+const serpentBeneath = graph.works.find(
+  (work) => work.id === "the-serpent-beneath",
+);
+check(
+  "the serpent beneath has no ribbons",
+  serpentBeneath?.ribbon === false,
+  `ribbon=${serpentBeneath?.ribbon ?? "missing"}`,
+);
 check(
   "work count stays 253",
   graph.works.length === 253,
