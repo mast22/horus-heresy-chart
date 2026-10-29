@@ -1,17 +1,33 @@
 ---
+import ThemeToggle from "../components/ThemeToggle.astro";
 import "../styles/global.css";
 import { navLinks, SITE_TITLE } from "../site/nav";
+import { THEME_STORAGE_KEY } from "../site/theme";
 
 const pathname = Astro.url.pathname.replace(/\/$/, "") || "/";
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme-storage-key={THEME_STORAGE_KEY}>
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{SITE_TITLE}</title>
     <link rel="icon" href="/favicon.ico">
+    <script is:inline>
+    (() => {
+      const media = window.matchMedia("(prefers-color-scheme: dark)");
+      const key = document.documentElement.dataset.themeStorageKey;
+      let stored = null;
+      try {
+        stored = key ? localStorage.getItem(key) : null;
+      } catch {
+        // Storage can be unavailable; follow the device setting instead.
+      }
+      const dark = stored === "dark" || (stored !== "light" && media.matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    })();
+    </script>
   </head>
   <body>
     <header>
@@ -26,6 +42,7 @@ const pathname = Astro.url.pathname.replace(/\/$/, "") || "/";
           </a>
         ))}
       </nav>
+      <ThemeToggle storageKey={THEME_STORAGE_KEY} />
     </header>
     <slot />
   </body>

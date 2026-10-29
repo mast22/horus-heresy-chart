@@ -13,7 +13,12 @@ import {
   useNodesState,
   useReactFlow,
 } from "@xyflow/react";
-import { type CSSProperties, useEffect, useState } from "react";
+import {
+  type CSSProperties,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import "@xyflow/react/dist/style.css";
 
@@ -34,6 +39,7 @@ import { displayTitle, WorkFace } from "./WorkFace";
 export { displayTitle } from "./WorkFace";
 
 import { selectionFor } from "../flow/selection";
+import type { Theme } from "../site/theme";
 import {
   chartControlConfig,
   closedSidebar,
@@ -482,6 +488,27 @@ function workClassName(node: Node, pulsing: boolean): string | undefined {
   return pulsing ? "nopan is-pulsing" : "nopan";
 }
 
+function subscribeToTheme(onChange: () => void): () => void {
+  window.addEventListener("themechange", onChange);
+  return () => window.removeEventListener("themechange", onChange);
+}
+
+function themeSnapshot(): Theme {
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+}
+
+function serverThemeSnapshot(): Theme {
+  return "light";
+}
+
+function useColorMode(): Theme {
+  return useSyncExternalStore(
+    subscribeToTheme,
+    themeSnapshot,
+    serverThemeSnapshot,
+  );
+}
+
 function FitViewOnMount() {
   const { fitView } = useReactFlow();
 
@@ -494,15 +521,21 @@ function FitViewOnMount() {
 
 function ChartCanvas({
   pulseIds,
+  focusIds,
+  focusKey,
   onWorkClick,
   onOpenLegend,
 }: {
   pulseIds: ReadonlySet<string>;
+  focusIds: readonly string[];
+  focusKey: number;
   onWorkClick: (id: string) => void;
   onOpenLegend: () => void;
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const interactive = chartControlConfig.interactionEnabled;
+  const colorMode = useColorMode();
+  const { fitView } = useReactFlow();
 
   useEffect(() => {
     setNodes((current) =>
@@ -512,6 +545,18 @@ function ChartCanvas({
       }),
     );
   }, [pulseIds, setNodes]);
+
+  useEffect(() => {
+    if (focusKey === 0 || focusIds.length === 0) {
+      return;
+    }
+    void fitView({
+      nodes: focusIds.map((id) => ({ id })),
+      padding: 0.2,
+      maxZoom: 1.2,
+      duration: 600,
+    });
+  }, [fitView, focusIds, focusKey]);
 
   return (
     <ReactFlow
@@ -525,7 +570,7 @@ function ChartCanvas({
       translateExtent={TRANSLATE_EXTENT}
       minZoom={0.02}
       maxZoom={1.5}
-      colorMode="light"
+      colorMode={colorMode}
       nodesDraggable={chartControlConfig.nodesDraggable}
       nodesConnectable={chartControlConfig.nodesConnectable}
       elementsSelectable={false}
@@ -558,6 +603,8 @@ export default function FlowChart() {
   const [sidebar, setSidebar] = useState(closedSidebar);
   const [legend, setLegend] = useState(initialLegend);
   const [pulseIds, setPulseIds] = useState<ReadonlySet<string>>(new Set());
+  const [focusIds, setFocusIds] = useState<readonly string[]>([]);
+  const [focusKey, setFocusKey] = useState(0);
 
   function handleWorkClick(workId: string) {
     const work = worksById.get(workId);
@@ -568,6 +615,12 @@ export default function FlowChart() {
     const nextSidebar = toggleWorkSidebar(sidebar, selection);
     setSidebar(nextSidebar);
     setPulseIds(nextSidebar.open ? new Set(nextWorkIds(workId)) : new Set());
+  }
+
+  function handleSearchSelect(ids: readonly string[]) {
+    setPulseIds(new Set(ids));
+    setFocusIds(ids);
+    setFocusKey((key) => key + 1);
   }
 
   return (
@@ -583,11 +636,13 @@ export default function FlowChart() {
         <ReactFlowProvider>
           <ChartCanvas
             pulseIds={pulseIds}
+            focusIds={focusIds}
+            focusKey={focusKey}
             onWorkClick={handleWorkClick}
             onOpenLegend={() => setLegend(openLegend())}
           />
         </ReactFlowProvider>
-        <SearchBox onSelect={(ids) => setPulseIds(new Set(ids))} />
+        <SearchBox onSelect={handleSearchSelect} />
       </div>
       <aside
         className={sidebar.open ? "work-sidebar is-open" : "work-sidebar"}
