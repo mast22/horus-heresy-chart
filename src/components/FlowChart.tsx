@@ -19,6 +19,7 @@ import "@xyflow/react/dist/style.css";
 
 import {
   buildChartGraph,
+  CHART_EXTENT,
   type ChartEdge,
   type ChartWork,
   type Connection,
@@ -468,6 +469,12 @@ const worksById = new Map(
   buildChartGraph().works.map((work) => [work.id, work]),
 );
 
+/** Keep the viewport inside the poster frame so panning can't lose the chart. */
+const TRANSLATE_EXTENT: [[number, number], [number, number]] = [
+  [CHART_EXTENT.left, CHART_EXTENT.top],
+  [CHART_EXTENT.right, CHART_EXTENT.bottom],
+];
+
 function workClassName(node: Node, pulsing: boolean): string | undefined {
   if (node.type !== "work") {
     return undefined;
@@ -515,6 +522,7 @@ function ChartCanvas({
       edgeTypes={edgeTypes}
       fitView
       fitViewOptions={{ padding: 0.04, duration: 0 }}
+      translateExtent={TRANSLATE_EXTENT}
       minZoom={0.02}
       maxZoom={1.5}
       colorMode="light"

@@ -5847,17 +5847,25 @@ export const zones: readonly ConflictZone[] = [
 /** Thin divider between the Horus Heresy and the Siege of Terra (poster pixels). */
 export const ERA_DIVIDER = {
   x: 9323,
-  y: 7548,
+  y: 4000,
   w: 2,
-  h: 3175,
+  h: 8000,
 } as const;
 
 /** Transparent backdrop behind the Siege of Terra column. */
 export const SIEGE_OF_TERRA_BACKDROP = {
   x: 9325,
-  y: 7548,
+  y: 4000,
   w: 2352,
-  h: 3175,
+  h: 8000,
+} as const;
+
+/** Pannable poster area. The canvas cannot be dragged outside these bounds. */
+export const CHART_EXTENT = {
+  left: 0,
+  top: 4000,
+  right: 12000,
+  bottom: 12000,
 } as const;
 
 export function buildChartGraph() {
