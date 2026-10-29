@@ -1,4 +1,4 @@
-# OCR and classification
+# Image Recognition, OCR and classification
 
 These scripts read `sources/chart.png` (the Black Librarium “THE HORUS HERESY: SPOILER-FREE READING ORDER” v3.0 poster, 12000×12556) and classify it into work boxes, publication kinds, gold ribbons, shortcut badges, conflict zones, and directed arrows.
 
