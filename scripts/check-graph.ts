@@ -520,8 +520,8 @@ check(
   `ribbon=${serpentBeneath?.ribbon ?? "missing"}`,
 );
 check(
-  "work count stays 253",
-  graph.works.length === 253,
+  "work count stays 254",
+  graph.works.length === 254,
   `${graph.works.length}`,
 );
 

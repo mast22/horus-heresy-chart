@@ -4138,6 +4138,22 @@ export const works: readonly ChartWork[] = [
     ...BOOK_DIMENSIONS.shortcut,
     standsFor: "angel-exterminatus",
   },
+  {
+    id: "shortcut-r-2",
+    title: "RUINSTORM",
+    publication: "R",
+    kind: "shortcut",
+    faction: "#004020",
+    color: ["#970400", "#00461f", "#0d407f"],
+    text: "#f6f1e6",
+    ribbon: false,
+    era: "horus-heresy",
+    zone: null,
+    x: 6003,
+    y: 6660,
+    ...BOOK_DIMENSIONS.shortcut,
+    standsFor: "ruinstorm",
+  },
 ];
 
 export const edges: readonly ChartEdge[] = [
@@ -5719,6 +5735,18 @@ export const edges: readonly ChartEdge[] = [
     id: "m-the-crimson-fist-the-unremembered-empire",
     source: "the-crimson-fist",
     target: "the-unremembered-empire",
+    connection: "primary",
+  },
+  {
+    id: "m-wolf-s-claw-wolfsbane",
+    source: "wolf-s-claw",
+    target: "wolfsbane",
+    connection: "primary",
+  },
+  {
+    id: "m-shortcut-r-2-wolfsbane",
+    source: "shortcut-r-2",
+    target: "wolfsbane",
     connection: "primary",
   },
 ];
