@@ -20,6 +20,7 @@ import "@xyflow/react/dist/style.css";
 
 import {
   buildChartGraph,
+  type ChartEdge,
   type ChartWork,
   type Connection,
 } from "../flow/chart";
@@ -40,6 +41,11 @@ import {
   toggleWorkSidebar,
 } from "../site/ui-state";
 
+type Port = {
+  id: string;
+  top: string;
+};
+
 type WorkData = {
   title: string;
   publication: string;
@@ -47,17 +53,48 @@ type WorkData = {
   color: readonly string[];
   text: string;
   ribbon: boolean;
+  sourcePorts: Port[];
+  targetPorts: Port[];
 };
 
 type ZoneData = {
   label: string;
 };
 
+/** Port positions by priority: the first connection sits at the node's center. */
+const PORT_TOPS = ["50%", "25%", "75%"] as const;
+
+function sidePorts(
+  prefix: "source" | "target",
+  connections: readonly Connection[],
+): Port[] {
+  return connections.map((connection, index) => ({
+    id: `${prefix}-${connection}`,
+    top: PORT_TOPS[index] ?? "50%",
+  }));
+}
+
 function WorkNode({ data }: NodeProps<Node<WorkData, "work">>) {
   return (
     <WorkFace data={data}>
-      <Handle type="target" position={Position.Left} />
-      <Handle type="source" position={Position.Right} />
+      {data.targetPorts.map((port) => (
+        <Handle
+          key={port.id}
+          id={port.id}
+          type="target"
+          position={Position.Left}
+          style={{ top: port.top }}
+        />
+      ))}
+      {data.sourcePorts.map((port) => (
+        <Handle
+          key={port.id}
+          id={port.id}
+          type="source"
+          position={Position.Right}
+          style={{ top: port.top }}
+        />
+      ))}
     </WorkFace>
   );
 }
@@ -79,6 +116,12 @@ const STROKE: Record<Connection, string> = {
   primary: "#c00000",
   secondary: "#204090",
   tertiary: "#2f8f28",
+};
+
+const CONNECTION_ORDER: Record<Connection, number> = {
+  primary: 0,
+  secondary: 1,
+  tertiary: 2,
 };
 
 const ARROW_LENGTH = 22;
@@ -186,8 +229,53 @@ const edgeTypes = {
   tipped: TippedEdge,
 };
 
+type Ports = {
+  source: Map<string, Connection[]>;
+  target: Map<string, Connection[]>;
+};
+
+/** Collect the distinct connection colors on each side of every node. */
+function computePorts(): Ports {
+  const { edges } = buildChartGraph();
+  const source = new Map<string, Connection[]>();
+  const target = new Map<string, Connection[]>();
+
+  for (const [nodeId, outgoing] of groupBy(edges, (edge) => edge.source)) {
+    source.set(nodeId, distinctConnections(outgoing));
+  }
+
+  for (const [nodeId, incoming] of groupBy(edges, (edge) => edge.target)) {
+    target.set(nodeId, distinctConnections(incoming));
+  }
+
+  return { source, target };
+}
+
+/** Distinct connection colors on one side, in fixed order. Same color shares one port. */
+function distinctConnections(edges: readonly ChartEdge[]): Connection[] {
+  const seen = new Set<Connection>();
+  for (const edge of edges) {
+    seen.add(edge.connection);
+  }
+  return [...seen].sort((a, b) => CONNECTION_ORDER[a] - CONNECTION_ORDER[b]);
+}
+
+function groupBy(
+  edges: readonly ChartEdge[],
+  key: (edge: ChartEdge) => string,
+): Map<string, ChartEdge[]> {
+  const groups = new Map<string, ChartEdge[]>();
+  for (const edge of edges) {
+    const group = groups.get(key(edge)) ?? [];
+    group.push(edge);
+    groups.set(key(edge), group);
+  }
+  return groups;
+}
+
 function chartNodes(): Node[] {
   const { works, zones } = buildChartGraph();
+  const { source, target } = computePorts();
   const zoneNodes: Node[] = zones.map((zone) => ({
     id: zone.id,
     type: "zone",
@@ -210,6 +298,8 @@ function chartNodes(): Node[] {
       color: work.color,
       text: work.text,
       ribbon: work.ribbon,
+      sourcePorts: sidePorts("source", source.get(work.id) ?? []),
+      targetPorts: sidePorts("target", target.get(work.id) ?? []),
     } satisfies WorkData,
     style: { width: work.w, height: work.h },
     draggable: false,
@@ -227,6 +317,8 @@ function chartEdges(): Edge[] {
     id: edge.id,
     source: edge.source,
     target: edge.target,
+    sourceHandle: `source-${edge.connection}`,
+    targetHandle: `target-${edge.connection}`,
     type: "tipped",
     zIndex: 1,
     data: { connection: edge.connection } satisfies TippedEdgeData,
