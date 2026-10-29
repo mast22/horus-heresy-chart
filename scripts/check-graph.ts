@@ -58,6 +58,25 @@ check(
   `non primary/secondary/tertiary: ${badClass}`,
 );
 
+const workById = new Map(graph.works.map((work) => [work.id, work]));
+const backward = graph.edges.filter((edge) => {
+  const source = workById.get(edge.source);
+  const target = workById.get(edge.target);
+  return source && target && target.x <= source.x;
+});
+check(
+  "edges point forward",
+  backward.length === 0,
+  backward.length === 0
+    ? `${graph.edges.length} edges advance rightward`
+    : backward
+        .map(
+          (edge) =>
+            `${edge.id} (${workById.get(edge.source)?.title} -> ${workById.get(edge.target)?.title})`,
+        )
+        .join(", "),
+);
+
 const zoneLabels = [
   "Schism of Mars",
   "Prospero's Sack",
