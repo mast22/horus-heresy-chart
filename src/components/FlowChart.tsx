@@ -44,7 +44,6 @@ type WorkData = {
   color: readonly string[];
   text: string;
   ribbon: boolean;
-  letters: string | null;
 };
 
 type ZoneData = {
@@ -208,7 +207,6 @@ function chartNodes(): Node[] {
       color: work.color,
       text: work.text,
       ribbon: work.ribbon,
-      letters: work.letters,
     } satisfies WorkData,
     style: { width: work.w, height: work.h },
     draggable: false,

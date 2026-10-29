@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { WorkFace, inkFor } from "../src/components/WorkFace.ts";
+import { inkFor, WorkFace } from "../src/components/WorkFace.ts";
 import { buildChartGraph, type ChartWork } from "../src/flow/chart.ts";
 
 const graph = buildChartGraph();
@@ -34,7 +34,6 @@ function paint(work: ChartWork): string {
         kind: work.kind,
         color: work.color,
         ribbon: work.ribbon,
-        letters: work.letters,
       },
     }),
   );
@@ -59,9 +58,19 @@ const cases: Array<{
   count: number;
   shape: "chamfer" | "round";
 }> = [
-  { label: "Ordo Sinister", title: /ordo sinister/i, count: 2, shape: "chamfer" },
+  {
+    label: "Ordo Sinister",
+    title: /ordo sinister/i,
+    count: 2,
+    shape: "chamfer",
+  },
   { label: "Ruinstorm", title: /^ruinstorm$/i, count: 3, shape: "round" },
-  { label: "The Path of Heaven", title: /path of heaven/i, count: 3, shape: "round" },
+  {
+    label: "The Path of Heaven",
+    title: /path of heaven/i,
+    count: 3,
+    shape: "round",
+  },
   { label: "Mechanicum", title: /^mechanicum$/i, count: 1, shape: "round" },
 ];
 
@@ -72,7 +81,9 @@ for (const item of cases) {
   const shape = html.match(/data-shape="(chamfer|round)"/)?.[1];
   const colorsMatch =
     bands.length === work.color.length &&
-    bands.every((band, index) => band.color === work.color[index].toLowerCase());
+    bands.every(
+      (band, index) => band.color === work.color[index].toLowerCase(),
+    );
   const inksMatch = bands.every((band) => band.ink === inkFor(band.color));
   const flat =
     bands.length > 1 && bands.every((band) => band.color === bands[0].color);

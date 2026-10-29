@@ -20,16 +20,16 @@ The Swift files import AppKit. They run on macOS. The Python steps can run on an
 
 ## Files
 
-| File | Role |
-| --- | --- |
-| `ocr.swift` | Tile the poster and run Vision OCR. |
-| `bands.py` | Measure the horizontal faction fills inside a box, top to bottom. This is the only band measurement. |
-| `extract_nodes.py` | Cluster hits into work boxes, classify the publication line, and record those fills. |
-| `reocr.swift` | Re-read each box at 3× so titles split by a tile boundary come back clean. |
-| `extract_edges.py` | Trace red, blue, and green arrows and detect shortcut badges. |
-| `build_graph.py` | Emit `ocr/out/chart.ts` from those products. `color` is the band list. |
-| `scan_boxes.py` | Pair black horizontal rules and report boxes the seeder missed. |
-| `measure_new.py` | Measure a fixed list of poster seeds, including their fills, and walk the arrow that leaves each one. |
+| File               | Role                                                                                                  |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| `ocr.swift`        | Tile the poster and run Vision OCR.                                                                   |
+| `bands.py`         | Measure the horizontal faction fills inside a box, top to bottom. This is the only band measurement.  |
+| `extract_nodes.py` | Cluster hits into work boxes, classify the publication line, and record those fills.                  |
+| `reocr.swift`      | Re-read each box at 3× so titles split by a tile boundary come back clean.                            |
+| `extract_edges.py` | Trace red, blue, and green arrows and detect shortcut badges.                                         |
+| `build_graph.py`   | Emit `ocr/out/chart.ts` from those products. `color` is the band list.                                |
+| `scan_boxes.py`    | Pair black horizontal rules and report boxes the seeder missed.                                       |
+| `measure_new.py`   | Measure a fixed list of poster seeds, including their fills, and walk the arrow that leaves each one. |
 
 A headless Chrome check was used to confirm the running page. It does not read the poster or classify nodes, so it is not part of this folder.
 
@@ -160,11 +160,11 @@ Shortcut letters on this poster are F, FT, SC, OE, W, R, and AE. The tracer keep
 
 The tracer crops x 60–11940, y 4140–11920.
 
-| Class | Colour | Head | Stroke |
-| --- | --- | --- | --- |
-| primary | red: R > 155, R > G+55, R > B+55, G < 120, B < 120 | solid triangle | solid |
-| secondary | blue: B > 105, B > R+40, B > G+15, R < 110, G < 170 | diamond | dotted |
-| tertiary | green: G > 110, G > R+35, G > B+25, R < 130, B < 130 | circle | dotted |
+| Class     | Colour                                               | Head           | Stroke |
+| --------- | ---------------------------------------------------- | -------------- | ------ |
+| primary   | red: R > 155, R > G+55, R > B+55, G < 120, B < 120   | solid triangle | solid  |
+| secondary | blue: B > 105, B > R+40, B > G+15, R < 110, G < 170  | diamond        | dotted |
+| tertiary  | green: G > 110, G > R+35, G > B+25, R < 130, B < 130 | circle         | dotted |
 
 Dark maroon fills and black borders (all channels under 42) are not lines. Dashes are closed with a 1×21 horizontal rectangle, a 21×1 vertical rectangle, then a disk of radius 2. The skeleton is walked from the arrow head back to the first other box. Contact is a gap under 7px after 8 steps. A dead end may snap to a box within 48px.
 
@@ -185,15 +185,15 @@ Zone rectangles come from long black rules near a label seed. Schism of Mars and
 
 These are the numbers recorded for this poster. A newer Vision model can change the hit text, so treat them as a comparison, not a test the scripts enforce.
 
-| Stage | Recorded result |
-| --- | --- |
-| `ocr.json` | 1076 hits |
-| `extract_nodes.py` | 575 deduped hits, 245 clusters, 216 works, 29 skipped |
-| Kinds | anthology 1, audio 7, characters 1, ebook 16, graphicNovel 1, novel 50, novella 6, shortStory 134 |
-| Ribbons on that pass | 26 |
-| `reocr.swift` | 216 boxes |
-| Tracer | about 175 edges, before hand edits |
-| `scan_boxes.py` | 947 rules, 145 paired boxes, 0 known novels missed |
+| Stage                | Recorded result                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| `ocr.json`           | 1076 hits                                                                                         |
+| `extract_nodes.py`   | 575 deduped hits, 245 clusters, 216 works, 29 skipped                                             |
+| Kinds                | anthology 1, audio 7, characters 1, ebook 16, graphicNovel 1, novel 50, novella 6, shortStory 134 |
+| Ribbons on that pass | 26                                                                                                |
+| `reocr.swift`        | 216 boxes                                                                                         |
+| Tracer               | about 175 edges, before hand edits                                                                |
+| `scan_boxes.py`      | 947 rules, 145 paired boxes, 0 known novels missed                                                |
 
 The shipped page, after the hand edits, has 245 Horus Heresy works, 8 Siege of Terra works, 176 edges, 29 ribboned works, and 28 shortcut badges. `scripts/check-graph.ts` checks that graph. It does not check `ocr/out/`.
 

@@ -32,7 +32,11 @@ export function inkFor(color: string): string {
   return luminance > 155 ? "#1c1917" : "#f6f1e6";
 }
 
-const CHAMFER: ReadonlySet<string> = new Set(["shortStory", "ebook", "novella"]);
+const CHAMFER: ReadonlySet<string> = new Set([
+  "shortStory",
+  "ebook",
+  "novella",
+]);
 
 export function workShape(kind: WorkKind): "chamfer" | "round" {
   return CHAMFER.has(kind) ? "chamfer" : "round";
@@ -44,7 +48,6 @@ export type WorkFaceData = {
   kind: WorkKind;
   color: readonly string[];
   ribbon: boolean;
-  letters: string | null;
 };
 
 /** The work node the page paints: one horizontal band per recorded fill, top to bottom. */
@@ -77,10 +80,19 @@ export function WorkFace({
           style: { height: `${count * 100}%`, top: `${-index * 100}%` },
         },
         shortcut
-          ? createElement("span", { className: "work-letters" }, data.letters)
-          : null,
-        createElement("span", { className: "work-title" }, displayTitle(data.title)),
-        createElement("span", { className: "work-pub" }, data.publication),
+          ? createElement(
+              "span",
+              { className: "work-letters" },
+              data.publication,
+            )
+          : createElement(
+              "span",
+              { className: "work-title" },
+              displayTitle(data.title),
+            ),
+        shortcut
+          ? null
+          : createElement("span", { className: "work-pub" }, data.publication),
       ),
     ),
   );

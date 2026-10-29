@@ -368,14 +368,6 @@ header nav a[aria-current="page"] {
   line-height: 1;
 }
 
-.work-node.is-shortcut .work-title,
-.work-node.is-shortcut .work-pub {
-  font-size: 8px;
-  font-style: normal;
-  font-weight: 600;
-  line-height: 1.05;
-}
-
 .work-ribbons {
   position: absolute;
   right: 4px;

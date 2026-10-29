@@ -122,14 +122,14 @@ for (const badge of shortcuts) {
   if (!full || full.title !== badge.title) {
     shortcutOnly += 1;
     lines.push(
-      `  shortcut problem ${badge.id} letters=${badge.letters} standsFor=${badge.standsFor}`,
+      `  shortcut problem ${badge.id} letters=${badge.publication} standsFor=${badge.standsFor}`,
     );
   }
 }
 check(
   "shortcuts are not the only copy",
   shortcuts.length > 0 && shortcutOnly === 0,
-  `${shortcuts.length} badges, problems ${shortcutOnly}, letters ${[...new Set(shortcuts.map((badge) => badge.letters))].join(",")}`,
+  `${shortcuts.length} badges, problems ${shortcutOnly}, letters ${[...new Set(shortcuts.map((badge) => badge.publication))].join(",")}`,
 );
 
 function findWork(title: RegExp, publication: RegExp): ChartWork | undefined {
@@ -420,7 +420,7 @@ function dumpZone(label: string) {
   lines.push(`-- ${label} (${members.length})`);
   for (const work of members) {
     lines.push(
-      `  ${work.kind} rib=${work.ribbon} ${work.title} | ${work.publication} | ${work.letters ?? ""}`,
+      `  ${work.kind} rib=${work.ribbon} ${work.title} | ${work.publication}`,
     );
   }
   const memberIds = new Set(members.map((work) => work.id));

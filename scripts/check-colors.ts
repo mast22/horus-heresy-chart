@@ -33,7 +33,8 @@ function nearBlack(hex: string): boolean {
 
 function close(stored: string, measuredColor: string): boolean {
   return [0, 1, 2].every(
-    (index) => Math.abs(channel(stored, index) - channel(measuredColor, index)) <= 40,
+    (index) =>
+      Math.abs(channel(stored, index) - channel(measuredColor, index)) <= 40,
   );
 }
 
@@ -43,12 +44,15 @@ for (const work of graph.works) {
   const colors = measured.get(work.id);
   if (!colors || colors.length === 0 || work.color.length === 0) {
     empty += 1;
-    lines.push(`  empty ${work.id} stored=${work.color.length} measured=${colors?.length ?? "missing"}`);
+    lines.push(
+      `  empty ${work.id} stored=${work.color.length} measured=${colors?.length ?? "missing"}`,
+    );
     continue;
   }
   const sameCount = colors.length === work.color.length;
   const sameOrder =
-    sameCount && work.color.every((color, index) => close(color, colors[index]));
+    sameCount &&
+    work.color.every((color, index) => close(color, colors[index]));
   if (!sameOrder) {
     mismatched += 1;
     lines.push(
@@ -83,8 +87,12 @@ for (const [label, title, count] of named) {
   const colors = work ? measured.get(work.id) : undefined;
   check(
     `${label} ${count}`,
-    Boolean(work && colors && colors.length === count && work.color.length === count),
-    work ? `${work.color.length} stored, ${colors?.length ?? 0} measured ${work.color.join(" ")}` : "missing",
+    Boolean(
+      work && colors && colors.length === count && work.color.length === count,
+    ),
+    work
+      ? `${work.color.length} stored, ${colors?.length ?? 0} measured ${work.color.join(" ")}`
+      : "missing",
   );
 }
 
@@ -242,6 +250,9 @@ json.dump(out, sys.stdout)
     console.error(result.stderr);
     process.exit(1);
   }
-  const rows = JSON.parse(result.stdout) as Array<{ id: string; colors: string[] }>;
+  const rows = JSON.parse(result.stdout) as Array<{
+    id: string;
+    colors: string[];
+  }>;
   return new Map(rows.map((row) => [row.id, row.colors]));
 }
