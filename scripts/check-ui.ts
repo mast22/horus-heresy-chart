@@ -443,9 +443,17 @@ check(
 );
 
 check(
-  "next work follows the primary arrows",
+  "next work follows the red arrows",
   nextWorkIds("galaxy-in-flames").includes("the-flight-of-the-eisenstein"),
   nextWorkIds("galaxy-in-flames").join(","),
+);
+
+const masseNext = nextWorkIds("the-maste-f-mankin");
+const callNext = nextWorkIds("call-of-the-lion");
+check(
+  "next work follows blue and green connections too",
+  masseNext.includes("ordo-sinister") && callNext.includes("fallen-angels"),
+  `the-maste-f-mankin -> ${masseNext.join(",")}; call-of-the-lion -> ${callNext.join(",")}`,
 );
 
 check(
