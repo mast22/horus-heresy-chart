@@ -318,11 +318,14 @@ Edges added with those works:
 - tertiary Scions of the Storm → The Purge
 - primary `shortcut-sc-2` → Grey Talon
 - primary `shortcut-ae-2` → The Seventh Serpent
+- primary The Flight of the Eisenstein → Child of Night (the spine off the Eisenstein feeds both The Last Remembrancer and Child of Night)
+- primary The Last Remembrancer → Garro (the long horizontal off The Last Remembrancer ends at Garro's arrowhead)
 
 Edges removed after a zero-pixel check, which a fresh trace can emit again:
 
 - primary Child of Chaos → Grandfather's Gift
 - primary Grandfather's Gift → Child of Chaos (the arrow on the poster goes to Terminus)
 - primary Heart of the Conqueror → The Revelation of the Word (the arrow goes to Prince of Blood; the Revelation box stays)
+- primary Child of Night → The Last Remembrancer and the reverse The Last Remembrancer → Child of Night (both are siblings on the Eisenstein spine)
 
 Walks that were rejected and should stay rejected: Terminus → The Binary Succession, Chamber → Garro. Bringer of Sorrow's ribbon stays false.

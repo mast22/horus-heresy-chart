@@ -4310,12 +4310,6 @@ export const edges: readonly ChartEdge[] = [
     connection: "primary",
   },
   {
-    id: "p29-child-ofnight-the-last-remembrancer-ancer-16",
-    source: "child-ofnight",
-    target: "the-last-remembrancer-ancer-16",
-    connection: "primary",
-  },
-  {
     id: "p30-nemesis-gunsight",
     source: "nemesis",
     target: "gunsight",
@@ -4340,12 +4334,6 @@ export const edges: readonly ChartEdge[] = [
     connection: "primary",
   },
   {
-    id: "p34-the-last-remembrancer-ancer-16-child-ofnight",
-    source: "the-last-remembrancer-ancer-16",
-    target: "child-ofnight",
-    connection: "primary",
-  },
-  {
     id: "p35-black-oculus-imperfect",
     source: "black-oculus",
     target: "imperfect",
@@ -4355,6 +4343,12 @@ export const edges: readonly ChartEdge[] = [
     id: "p36-imperfect-chirurgeon",
     source: "imperfect",
     target: "chirurgeon",
+    connection: "primary",
+  },
+  {
+    id: "p37-the-last-remembrancer-ancer-16-garro-novelization-of-short-stories",
+    source: "the-last-remembrancer-ancer-16",
+    target: "garro-novelization-of-short-stories",
     connection: "primary",
   },
   {
@@ -5413,6 +5407,12 @@ export const edges: readonly ChartEdge[] = [
     id: "m-the-flight-of-the-eisenstein-the-last-remembrancer-ancer-16",
     source: "the-flight-of-the-eisenstein",
     target: "the-last-remembrancer-ancer-16",
+    connection: "primary",
+  },
+  {
+    id: "m-the-flight-of-the-eisenstein-child-ofnight",
+    source: "the-flight-of-the-eisenstein",
+    target: "child-ofnight",
     connection: "primary",
   },
   {
