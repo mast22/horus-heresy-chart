@@ -323,6 +323,95 @@ check(
   `${mortis?.title ?? "missing"} -> ${warhawk?.title ?? "missing"}`,
 );
 
+const face = graph.works.find((work) => work.id === "the-face-of-treachery");
+const deliverance = graph.works.find((work) => work.id === "deliverance-lost");
+const ravenFlight = graph.works.find((work) => work.id === "raven-s-flight");
+check(
+  "raven's flight primary to the face of treachery",
+  hasEdge(ravenFlight?.id, face?.id, "primary"),
+  `${ravenFlight?.title ?? "missing"} -> ${face?.title ?? "missing"}`,
+);
+check(
+  "the face of treachery primary to deliverance lost",
+  hasEdge(face?.id, deliverance?.id, "primary"),
+  `${face?.title ?? "missing"} -> ${deliverance?.title ?? "missing"}`,
+);
+
+const outcastDead = graph.works.find((work) => work.id === "the-outcast-dead");
+const wolfHunt = graph.works.find((work) => work.id === "wolt-hunt");
+const furyOfMagnus = graph.works.find(
+  (work) => work.id === "the-fury-of-magnus",
+);
+const callOfTheLion = graph.works.find(
+  (work) => work.id === "call-of-the-lion",
+);
+const fallenAngels = graph.works.find((work) => work.id === "fallen-angels");
+const forgottenSons = graph.works.find((work) => work.id === "forgotten-sons");
+const gatesOfTerra = graph.works.find(
+  (work) => work.id === "the-gates-of-terra",
+);
+const sinsOfTheFather = graph.works.find(
+  (work) => work.id === "sins-of-the-father-ther",
+);
+const heraldOfSanguinius = graph.works.find(
+  (work) => work.id === "herald-of-sanguinius",
+);
+const mechanicumById = graph.works.find((work) => work.id === "mechanicum");
+const lastChurch = graph.works.find((work) => work.id === "the-last-church");
+const scionsOfTheStorm = graph.works.find(
+  (work) => work.id === "scions-of-the-storm",
+);
+const purge = graph.works.find((work) => work.id === "the-purge");
+const horusRising = graph.works.find((work) => work.id === "horus-rising");
+const wolfOfAsh = graph.works.find(
+  (work) => work.id === "the-wolf-of-ash-and-fire",
+);
+check(
+  "the outcast dead primary to wolf hunt",
+  hasEdge(outcastDead?.id, wolfHunt?.id, "primary"),
+  `${outcastDead?.title ?? "missing"} -> ${wolfHunt?.title ?? "missing"}`,
+);
+check(
+  "saturnine primary to the fury of magnus",
+  hasEdge(saturnine?.id, furyOfMagnus?.id, "primary"),
+  `${saturnine?.title ?? "missing"} -> ${furyOfMagnus?.title ?? "missing"}`,
+);
+check(
+  "call of the lion tertiary to fallen angels",
+  hasEdge(callOfTheLion?.id, fallenAngels?.id, "tertiary"),
+  `${callOfTheLion?.title ?? "missing"} -> ${fallenAngels?.title ?? "missing"}`,
+);
+check(
+  "forgotten sons tertiary to the gates of terra",
+  hasEdge(forgottenSons?.id, gatesOfTerra?.id, "tertiary"),
+  `${forgottenSons?.title ?? "missing"} -> ${gatesOfTerra?.title ?? "missing"}`,
+);
+check(
+  "sins of the father tertiary to herald of sanguinius",
+  hasEdge(sinsOfTheFather?.id, heraldOfSanguinius?.id, "tertiary"),
+  `${sinsOfTheFather?.title ?? "missing"} -> ${heraldOfSanguinius?.title ?? "missing"}`,
+);
+check(
+  "mechanicum tertiary to the last church",
+  hasEdge(mechanicumById?.id, lastChurch?.id, "tertiary"),
+  `${mechanicumById?.title ?? "missing"} -> ${lastChurch?.title ?? "missing"}`,
+);
+check(
+  "scions of the storm tertiary to the purge",
+  hasEdge(scionsOfTheStorm?.id, purge?.id, "tertiary"),
+  `${scionsOfTheStorm?.title ?? "missing"} -> ${purge?.title ?? "missing"}`,
+);
+check(
+  "horus rising tertiary to the wolf of ash and fire",
+  hasEdge(horusRising?.id, wolfOfAsh?.id, "tertiary"),
+  `${horusRising?.title ?? "missing"} -> ${wolfOfAsh?.title ?? "missing"}`,
+);
+check(
+  "work count stays 253",
+  graph.works.length === 253,
+  `${graph.works.length}`,
+);
+
 lines.push("");
 lines.push("## Spot-check Schism of Mars and War Within the Webway");
 
