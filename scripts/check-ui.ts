@@ -1,6 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 
 import { buildChartGraph } from "../src/flow/chart.ts";
+import { FACTION_COLORS, factionsFor } from "../src/flow/legions.ts";
+import { selectionFor } from "../src/flow/selection.ts";
+import { workDetails } from "../src/flow/work-details.ts";
 import {
   creditPageBody,
   extractPageCopy,
@@ -18,7 +21,6 @@ import {
   SIDEBAR_WIDTH_FRACTION,
   toggleWorkSidebar,
   workAuthor,
-  workSelection,
 } from "../src/site/ui-state.ts";
 
 const lines: string[] = [];
@@ -196,9 +198,37 @@ check(
 );
 
 const graph = buildChartGraph();
-const work = graph.works.find(
-  (item) => item.kind !== "shortcut" && item.title === "The Last Church",
+const byId = new Map(graph.works.map((item) => [item.id, item]));
+const detailIds = new Set(Object.keys(workDetails));
+const nonShortcut = graph.works.filter((item) => item.kind !== "shortcut");
+const missingDetails = nonShortcut
+  .filter((item) => !detailIds.has(item.id))
+  .map((item) => item.id);
+const extraDetails = [...detailIds].filter(
+  (id) => !nonShortcut.some((item) => item.id === id),
 );
+check(
+  "every work has details",
+  missingDetails.length === 0 && extraDetails.length === 0,
+  `missing ${missingDetails.join(",") || "none"} extra ${extraDetails.join(",") || "none"}`,
+);
+
+const incomplete = nonShortcut.filter((item) => {
+  const details = workDetails[item.id];
+  return (
+    !details ||
+    details.author.trim() === "" ||
+    !Number.isInteger(details.year) ||
+    details.length.trim() === ""
+  );
+});
+check(
+  "details have author, year and length",
+  incomplete.length === 0,
+  incomplete.map((item) => item.id).join(",") || "all complete",
+);
+
+const work = graph.works.find((item) => item.id === "the-last-church");
 const other = graph.works.find(
   (item) => item.kind !== "shortcut" && item.id !== work?.id,
 );
@@ -209,24 +239,31 @@ check(
 );
 
 if (work && other) {
-  const selection = workSelection(work);
+  const selection = selectionFor(work, byId);
   check(
-    "work selection uses the chart title and no invented author",
+    "selection reads the chart title and published details",
     selection.id === work.id &&
       selection.title === work.title &&
-      selection.author === "" &&
-      workAuthor(work) === "" &&
-      !("author" in work),
-    `${selection.title} author=${JSON.stringify(selection.author)}`,
+      selection.publication === work.publication &&
+      selection.author === "Graham McNeill" &&
+      selection.year === 2009 &&
+      selection.length === "1 hr 26 min audio" &&
+      selection.factions.length === 1 &&
+      selection.factions[0]?.name === "Expunged from Imperial Archives",
+    `${selection.title} by ${selection.author}, ${selection.year}, ${selection.length}, ${selection.factions.map((faction) => faction.name).join(",")}`,
   );
 
-  let sidebar = toggleWorkSidebar(closedSidebar(), work);
+  let sidebar = toggleWorkSidebar(closedSidebar(), selection);
   check(
     "work click opens sidebar",
     sidebar.open &&
       sidebar.workId === work.id &&
       sidebar.bookName === work.title &&
-      sidebar.author === "" &&
+      sidebar.publication === work.publication &&
+      sidebar.author === "Graham McNeill" &&
+      sidebar.year === 2009 &&
+      sidebar.length === "1 hr 26 min audio" &&
+      sidebar.factions.length === 1 &&
       sidebar.widthFraction === SIDEBAR_WIDTH_FRACTION &&
       sidebar.widthFraction === 0.25 &&
       sidebar.entrance === SIDEBAR_ENTRANCE &&
@@ -234,27 +271,29 @@ if (work && other) {
     `${sidebar.bookName} width ${sidebar.widthFraction} from ${sidebar.entrance}`,
   );
 
-  sidebar = toggleWorkSidebar(sidebar, work);
+  sidebar = toggleWorkSidebar(sidebar, selection);
   check(
     "second click closes sidebar",
     !sidebar.open && sidebar.workId === null && sidebar.bookName === "",
     `open ${sidebar.open}`,
   );
 
-  sidebar = toggleWorkSidebar(closedSidebar(), work);
-  sidebar = toggleWorkSidebar(sidebar, other);
+  const otherSelection = selectionFor(other, byId);
+  sidebar = toggleWorkSidebar(closedSidebar(), selection);
+  sidebar = toggleWorkSidebar(sidebar, otherSelection);
   check(
     "different work replaces the book",
     sidebar.open &&
       sidebar.workId === other.id &&
       sidebar.bookName === other.title &&
-      sidebar.author === "" &&
+      sidebar.author === workDetails[other.id].author &&
+      sidebar.year === workDetails[other.id].year &&
       sidebar.bookName !== work.title,
-    sidebar.bookName,
+    `${sidebar.bookName} by ${sidebar.author}`,
   );
 
   const authored = toggleWorkSidebar(closedSidebar(), {
-    ...work,
+    ...selection,
     author: "Kept Author",
   });
   check(
@@ -266,6 +305,42 @@ if (work && other) {
     authored.author,
   );
 }
+
+const badge = graph.works.find((item) => item.kind === "shortcut");
+if (badge?.standsFor) {
+  const target = byId.get(badge.standsFor);
+  if (target) {
+    const selection = selectionFor(badge, byId);
+    check(
+      "shortcut shows the work it stands for",
+      selection.id === target.id &&
+        selection.title === target.title &&
+        selection.author === workDetails[target.id].author &&
+        selection.length === workDetails[target.id].length,
+      `${badge.publication} -> ${selection.title} by ${selection.author}`,
+    );
+  }
+}
+
+const unmapped = graph.works.filter(
+  (item) => factionsFor(item.color).length === 0,
+);
+check(
+  "every work colour maps to a faction",
+  unmapped.length === 0,
+  unmapped.map((item) => item.id).join(",") || "all mapped",
+);
+check(
+  "legend colours drive the legion names",
+  factionsFor(["#f597d3"])[0]?.name === "Emperor's Children" &&
+    factionsFor(["#fffcec"])[0]?.name === "Luna Wolves / Sons of Horus" &&
+    factionsFor(["#000000"])[0]?.name === "Raven Guard" &&
+    factionsFor(["#b09642"])[0]?.name === "Siege of Terra" &&
+    factionsFor(["#00461f", "#f597d3"])
+      .map((faction) => faction.name)
+      .join(",") === "Dark Angels,Emperor's Children",
+  FACTION_COLORS.map((faction) => faction.name).join(","),
+);
 
 const legend = initialLegend();
 const openedLegend = openLegend();
@@ -303,7 +378,7 @@ const css = readFileSync("src/styles/global.css", "utf8");
 check(
   "chart wires the shipped chrome",
   flowSource.includes("toggleWorkSidebar") &&
-    flowSource.includes("workSelection") &&
+    flowSource.includes("selectionFor") &&
     flowSource.includes("openLegend()") &&
     flowSource.includes("closeLegend()") &&
     flowSource.includes(
@@ -316,6 +391,11 @@ check(
     flowSource.includes('className="legend-body"') &&
     flowSource.includes("sidebar.bookName") &&
     flowSource.includes("sidebar.author") &&
+    flowSource.includes("sidebar.year") &&
+    flowSource.includes("sidebar.length") &&
+    flowSource.includes("sidebar.factions") &&
+    flowSource.includes('className="sidebar-close"') &&
+    flowSource.includes("closedSidebar()") &&
     flowSource.includes("data-entrance={sidebar.entrance}") &&
     flowSource.includes("SIDEBAR_WIDTH_FRACTION") &&
     !flowSource.includes("Toggle interactivity") &&
@@ -323,6 +403,9 @@ check(
     !/showInteractive=\{true\}/.test(flowSource) &&
     css.includes("translateX(100%)") &&
     css.includes("--work-sidebar-width") &&
+    css.includes(".sidebar-close") &&
+    css.includes(".sidebar-facts") &&
+    css.includes(".faction-chip") &&
     css.includes(".legend-button") &&
     css.includes(".legend-body"),
   "sidebar, legend, no interactivity toggle",

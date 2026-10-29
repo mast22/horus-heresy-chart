@@ -130,14 +130,14 @@ header nav a[aria-current="page"] {
 }
 
 .work-sidebar.is-open {
-  flex-basis: var(--work-sidebar-width);
-  inline-size: var(--work-sidebar-width);
+  flex-basis: clamp(18rem, var(--work-sidebar-width), 30rem);
+  inline-size: clamp(18rem, var(--work-sidebar-width), 30rem);
   border-inline-start-color: var(--line);
 }
 
 .work-sidebar-panel {
   box-sizing: border-box;
-  inline-size: var(--work-sidebar-width);
+  inline-size: clamp(18rem, var(--work-sidebar-width), 30rem);
   block-size: 100%;
   padding: 1.25rem 1rem;
   overflow: auto;
@@ -149,30 +149,89 @@ header nav a[aria-current="page"] {
   transform: translateX(0);
 }
 
+.sidebar-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin: 0 0 0.45rem;
+}
+
 .sidebar-book {
-  margin: 0 0 0.85rem;
+  margin: 0;
   font-size: 1.35rem;
   line-height: 1.25;
 }
 
-.sidebar-author {
+.sidebar-close {
+  flex: 0 0 auto;
   margin: 0;
-  min-block-size: 1.4em;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  cursor: pointer;
 }
 
-.sidebar-author-label {
-  display: block;
-  margin-bottom: 0.2rem;
+.sidebar-close:hover {
+  background: var(--page-bg);
+}
+
+.sidebar-meta {
+  margin: 0 0 1rem;
+  color: #6b645c;
+  font-size: 0.85rem;
+}
+
+.sidebar-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.55rem 0.85rem;
+  margin: 0;
+}
+
+.sidebar-facts dt {
+  color: #6b645c;
   font-size: 0.72rem;
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.sidebar-author-value {
-  display: block;
-  min-block-size: 1.2em;
+.sidebar-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
   font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.sidebar-factions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.faction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-inline-size: 100%;
+  padding: 0.15rem 0.4rem 0.15rem 0.3rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.faction-swatch {
+  flex: 0 0 auto;
+  inline-size: 0.7rem;
+  block-size: 0.7rem;
+  border: 1px solid rgba(28, 25, 23, 0.25);
 }
 
 .react-flow__controls .legend-button {

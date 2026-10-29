@@ -22,10 +22,11 @@ import {
   type ChartWork,
   type Connection,
 } from "../flow/chart";
-import { WorkFace } from "./WorkFace";
+import { displayTitle, WorkFace } from "./WorkFace";
 
 export { displayTitle } from "./WorkFace";
 
+import { selectionFor } from "../flow/selection";
 import {
   chartControlConfig,
   closedSidebar,
@@ -34,7 +35,6 @@ import {
   openLegend,
   SIDEBAR_WIDTH_FRACTION,
   toggleWorkSidebar,
-  workSelection,
 } from "../site/ui-state";
 
 type WorkData = {
@@ -296,7 +296,7 @@ export default function FlowChart() {
                 return;
               }
               setSidebar((current) =>
-                toggleWorkSidebar(current, workSelection(work)),
+                toggleWorkSidebar(current, selectionFor(work, worksById)),
               );
             }}
           >
@@ -327,11 +327,43 @@ export default function FlowChart() {
         <div className="work-sidebar-panel">
           {sidebar.open ? (
             <>
-              <h2 className="sidebar-book">{sidebar.bookName}</h2>
-              <p className="sidebar-author">
-                <span className="sidebar-author-label">Author</span>
-                <span className="sidebar-author-value">{sidebar.author}</span>
-              </p>
+              <div className="sidebar-heading">
+                <h2 className="sidebar-book">
+                  {displayTitle(sidebar.bookName)}
+                </h2>
+                <button
+                  type="button"
+                  className="sidebar-close"
+                  onClick={() => setSidebar(closedSidebar())}
+                >
+                  Close
+                </button>
+              </div>
+              {sidebar.publication ? (
+                <p className="sidebar-meta">{sidebar.publication}</p>
+              ) : null}
+              <dl className="sidebar-facts">
+                <dt>Author</dt>
+                <dd>{sidebar.author || "Unknown"}</dd>
+                <dt>Released</dt>
+                <dd>{sidebar.year ?? "Unknown"}</dd>
+                <dt>Length</dt>
+                <dd>{sidebar.length || "Unknown"}</dd>
+                <dt>Legion / Faction</dt>
+                <dd className="sidebar-factions">
+                  {sidebar.factions.length > 0
+                    ? sidebar.factions.map((faction) => (
+                        <span className="faction-chip" key={faction.name}>
+                          <span
+                            className="faction-swatch"
+                            style={{ backgroundColor: faction.color }}
+                          />
+                          {faction.name}
+                        </span>
+                      ))
+                    : "Unknown"}
+                </dd>
+              </dl>
             </>
           ) : null}
         </div>
