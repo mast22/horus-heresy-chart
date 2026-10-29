@@ -337,6 +337,44 @@ check(
   `${face?.title ?? "missing"} -> ${deliverance?.title ?? "missing"}`,
 );
 
+const lastRemembrancer = graph.works.find(
+  (work) => work.id === "the-last-remembrancer-ancer-16",
+);
+const ghostsSpeakNot = graph.works.find(
+  (work) => work.id === "ghosts-speak-not",
+);
+const garro = graph.works.find(
+  (work) => work.id === "garro-novelization-of-short-stories",
+);
+const flightOfEisenstein = graph.works.find(
+  (work) => work.id === "the-flight-of-the-eisenstein",
+);
+const childOfNight = graph.works.find((work) => work.id === "child-ofnight");
+const lastRemembrancerOut = graph.edges.filter(
+  (edge) =>
+    edge.source === lastRemembrancer?.id && edge.connection === "primary",
+);
+check(
+  "last remembrancer primary to ghosts speak not",
+  hasEdge(lastRemembrancer?.id, ghostsSpeakNot?.id, "primary"),
+  `${lastRemembrancer?.title ?? "missing"} -> ${ghostsSpeakNot?.title ?? "missing"}`,
+);
+check(
+  "last remembrancer primary to garro",
+  hasEdge(lastRemembrancer?.id, garro?.id, "primary"),
+  `${lastRemembrancer?.title ?? "missing"} -> ${garro?.title ?? "missing"}`,
+);
+check(
+  "last remembrancer has two primary targets",
+  lastRemembrancerOut.length === 2,
+  `${lastRemembrancerOut.length}`,
+);
+check(
+  "flight of the eisenstein primary to child of night",
+  hasEdge(flightOfEisenstein?.id, childOfNight?.id, "primary"),
+  `${flightOfEisenstein?.title ?? "missing"} -> ${childOfNight?.title ?? "missing"}`,
+);
+
 const outcastDead = graph.works.find((work) => work.id === "the-outcast-dead");
 const wolfHunt = graph.works.find((work) => work.id === "wolt-hunt");
 const furyOfMagnus = graph.works.find(
