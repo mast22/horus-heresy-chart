@@ -2,8 +2,9 @@
  * Routing geometry regression checks.
  *
  * Verifies the contract of `src/flow/routing.ts`: every edge leaves its source
- * rightward, enters its target from the left, and never passes through a work
- * it does not connect to. Run with:
+ * rightward, enters its target from the left, never passes through a work it
+ * does not connect to, and turns 90° with enough clearance before each box so
+ * the arrowhead does not fold over its own bend. Run with:
  *
  *   node --experimental-strip-types scripts/check-routing.ts
  */
@@ -14,7 +15,12 @@ import {
   type ChartWork,
   type Connection,
 } from "../src/flow/chart.ts";
-import { type Point, routeWorkEdge } from "../src/flow/routing.ts";
+import {
+  MIN_EXIT_RUN,
+  MIN_RUN,
+  type Point,
+  routeWorkEdge,
+} from "../src/flow/routing.ts";
 
 const graph = buildChartGraph();
 
@@ -100,6 +106,8 @@ const KNOWN_CROSSINGS = new Set(["s123-badge-8-scars:the-thirteenth-wolf"]);
 let routed = 0;
 let badStart = 0;
 let badEnd = 0;
+let shortExit = 0;
+let shortEntry = 0;
 const crossings: string[] = [];
 
 for (const edge of graph.edges) {
@@ -142,6 +150,24 @@ for (const edge of graph.edges) {
     lines.push(`  ${edge.id} enters ${edge.target} from a non-left side`);
   }
 
+  // Arrows must turn 90° some distance before the box, otherwise the rounded
+  // corner folds over the arrowhead. The exit side only needs room for the
+  // bend (no arrowhead), the entry side needs the full clearance.
+  const exitRun = second.x - first.x;
+  const entryRun = last.x - secondLast.x;
+  if (exitRun < MIN_EXIT_RUN) {
+    shortExit += 1;
+    lines.push(
+      `  ${edge.id} exits ${edge.source} with only ${exitRun}px of clearance`,
+    );
+  }
+  if (entryRun < MIN_RUN) {
+    shortEntry += 1;
+    lines.push(
+      `  ${edge.id} enters ${edge.target} with only ${entryRun}px of clearance`,
+    );
+  }
+
   for (const work of graph.works) {
     if (work.id === edge.source || work.id === edge.target) continue;
     const rect: Rect = { x: work.x, y: work.y, w: work.w, h: work.h };
@@ -176,6 +202,16 @@ check(
   "edges enter the target from the left",
   badEnd === 0,
   `${badEnd} non-left entries`,
+);
+check(
+  "edges turn 90° before the box (entry clearance)",
+  shortEntry === 0,
+  `${shortEntry} entries with less than ${MIN_RUN}px clearance`,
+);
+check(
+  "edges have room for the exit bend",
+  shortExit === 0,
+  `${shortExit} exits with less than ${MIN_EXIT_RUN}px clearance`,
 );
 
 const unexpected = crossings.filter((key) => !KNOWN_CROSSINGS.has(key));

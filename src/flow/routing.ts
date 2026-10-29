@@ -1,11 +1,18 @@
 /**
- * Orthogonal edge routing with obstacle avoidance.
+ * Orthogonal edge routing with obstacle avoidance and clearance.
  *
  * The chart nodes sit on a grid, so an edge is routed as a Manhattan path that
  * leaves the source on its right edge, enters the target on its left edge, and
  * never crosses any other work. A* runs over a sparse grid built from the node
  * boundaries plus the midpoint of every gutter, so the path can turn inside the
  * gaps between boxes instead of cutting through them.
+ *
+ * Every edge also reserves a minimum straight run on each end. An arrow must
+ * meet its box at 90°, and the bend that makes that happen has to sit some
+ * distance before the box — otherwise the rounded corner folds over the
+ * arrowhead and the arrow reads as broken. The router therefore keeps the trunk
+ * at least `MIN_RUN` pixels clear of the source's right edge and the target's
+ * left edge, and finishes with a straight, perpendicular run into the target.
  */
 
 import { buildChartGraph } from "./chart.ts";
@@ -16,6 +23,20 @@ type Rect = { x: number; y: number; w: number; h: number };
 
 /** Distance an edge keeps from a box it does not connect to. */
 const MARGIN = 8;
+
+/**
+ * Minimum straight, perpendicular run before a bend at a node edge. This is
+ * sized so the rounded corner plus the arrowhead have room to draw without
+ * folding over the box. Exported so routing regression checks can assert it.
+ */
+export const MIN_RUN = 40;
+
+/**
+ * Minimum straight run on the exit side when the source and target are so close
+ * there is no room for the full `MIN_RUN` on both ends. The source carries no
+ * arrowhead, so it only needs enough room for the rounded bend.
+ */
+export const MIN_EXIT_RUN = 16;
 
 /** Small extra cost per bend so ties break toward straighter, cleaner paths. */
 const TURN_PENALTY = 0.5;
@@ -164,43 +185,83 @@ export function routeWorkEdge(
     return [sourcePoint, targetPoint];
   }
 
-  const obstacles = rects
-    .filter(
-      (rect) =>
-        rect !== source &&
-        rect !== target &&
-        // A node that sits on top of the source (a shortcut badge or audio
-        // capsule overlapping a work) must not trap the outgoing stroke.
-        !overlaps(rect, source),
-    )
-    .map((rect) => inflate(rect, MARGIN));
+  const sourceRight = source.x + source.w;
+  const exitLane: Point = { x: sourceRight + MIN_RUN, y: sourcePoint.y };
+  const entryLane: Point = { x: target.x - MIN_RUN, y: targetPoint.y };
 
+  // Horizontally adjacent boxes with no room for a full 90° turn on both
+  // sides get a straight two-turn path that still keeps the entry lane clear.
+  if (target.x > sourceRight && target.x - sourceRight < 2 * MIN_RUN) {
+    return tightPath(sourceRight, target.x, sourcePoint, targetPoint);
+  }
+
+  const obstacles: Rect[] = [
+    ...rects
+      .filter(
+        (rect) =>
+          rect !== source &&
+          rect !== target &&
+          // A node that sits on top of the source (a shortcut badge or audio
+          // capsule overlapping a work) must not trap the outgoing stroke.
+          !overlaps(rect, source),
+      )
+      .map((rect) => inflate(rect, MARGIN)),
+    // Reserve a straight exit lane to the right of the source and a straight
+    // entry lane to the left of the target. The trunk runs between these two
+    // bands; the straight runs themselves are appended below.
+    { x: source.x, y: source.y, w: source.w + MIN_RUN, h: source.h },
+    { x: target.x - MIN_RUN, y: target.y, w: target.w + MIN_RUN, h: target.h },
+  ];
+
+  const trunk = routeTrunk(exitLane, entryLane, obstacles);
+  if (trunk.length === 0) {
+    return fallbackPath(sourcePoint, targetPoint);
+  }
+
+  return simplify(
+    [sourcePoint, ...trunk, targetPoint],
+    sourcePoint,
+    targetPoint,
+  );
+}
+
+/**
+ * A* from `startPoint` to `goalPoint` over the node-boundary grid. The start
+ * leaves rightward, the goal may be reached from any direction (the caller
+ * appends the final straight run into the box), and the goal itself is exempt
+ * from obstacle checks so it can sit exactly on a clearance band's edge.
+ */
+function routeTrunk(
+  startPoint: Point,
+  goalPoint: Point,
+  obstacles: Rect[],
+): Point[] {
   const xs = midpoints([
     ...rects.flatMap((rect) => [rect.x, rect.x + rect.w]),
-    sourcePoint.x,
-    targetPoint.x,
+    startPoint.x,
+    goalPoint.x,
   ]);
   const ys = midpoints([
     ...rects.flatMap((rect) => [rect.y, rect.y + rect.h]),
-    sourcePoint.y,
-    targetPoint.y,
+    startPoint.y,
+    goalPoint.y,
   ]);
 
   const nx = xs.length;
   const ny = ys.length;
 
-  const sxi = xs.indexOf(sourcePoint.x);
-  const syi = ys.indexOf(sourcePoint.y);
-  const txi = xs.indexOf(targetPoint.x);
-  const tyi = ys.indexOf(targetPoint.y);
+  const sxi = xs.indexOf(startPoint.x);
+  const syi = ys.indexOf(startPoint.y);
+  const gxi = xs.indexOf(goalPoint.x);
+  const gyi = ys.indexOf(goalPoint.y);
 
-  if (sxi < 0 || syi < 0 || txi < 0 || tyi < 0) {
-    return [sourcePoint, targetPoint];
+  if (sxi < 0 || syi < 0 || gxi < 0 || gyi < 0) {
+    return [];
   }
 
   const cell = (xi: number, yi: number): number => yi * nx + xi;
   const start = cell(sxi, syi);
-  const goal = cell(txi, tyi);
+  const goal = cell(gxi, gyi);
 
   const pointAt = (xi: number, yi: number): Point => ({
     x: xs[xi],
@@ -208,6 +269,7 @@ export function routeWorkEdge(
   });
 
   const freePoint = (xi: number, yi: number): boolean => {
+    if (cell(xi, yi) === goal) return true;
     const point = pointAt(xi, yi);
     for (const obstacle of obstacles) {
       if (pointInRect(point, obstacle)) return false;
@@ -240,7 +302,7 @@ export function routeWorkEdge(
   function heuristic(c: number): number {
     const xi = c % nx;
     const yi = Math.floor(c / nx);
-    return Math.abs(xs[xi] - xs[txi]) + Math.abs(ys[yi] - ys[tyi]);
+    return Math.abs(xs[xi] - xs[gxi]) + Math.abs(ys[yi] - ys[gyi]);
   }
 
   let found: number | undefined;
@@ -260,7 +322,7 @@ export function routeWorkEdge(
     const xi = current.cell % nx;
     const yi = Math.floor(current.cell / nx);
     const point = pointAt(xi, yi);
-    const isSource = current.cell === start;
+    const isStart = current.cell === start;
 
     for (let dir = 0; dir < 4; dir++) {
       const nxi = xi + DX[dir];
@@ -268,11 +330,9 @@ export function routeWorkEdge(
       if (nxi < 0 || nxi >= nx || nyi < 0 || nyi >= ny) continue;
 
       const nextCell = cell(nxi, nyi);
-      // The source must leave rightward (never into its own box), and the
-      // target is only entered from the left, so the final stroke is always a
-      // rightward move into the box and the arrowhead orientation stays fixed.
-      if (isSource && dir !== 1) continue;
-      if (nextCell === goal && dir !== 1) continue;
+      // The start must leave rightward (never back into its own clearance
+      // band); the goal may be reached from any direction.
+      if (isStart && dir !== 1) continue;
 
       const nextPoint = pointAt(nxi, nyi);
       if (!freePoint(nxi, nyi)) continue;
@@ -300,7 +360,7 @@ export function routeWorkEdge(
   }
 
   if (found === undefined) {
-    return fallbackPath(sourcePoint, targetPoint);
+    return [];
   }
 
   // Reconstruct.
@@ -313,8 +373,7 @@ export function routeWorkEdge(
   cells.push(start);
   cells.reverse();
 
-  const points = cells.map((c) => pointAt(c % nx, Math.floor(c / nx)));
-  return simplify(points, sourcePoint, targetPoint);
+  return cells.map((c) => pointAt(c % nx, Math.floor(c / nx)));
 }
 
 function fallbackPath(source: Point, target: Point): Point[] {
@@ -323,6 +382,28 @@ function fallbackPath(source: Point, target: Point): Point[] {
     { x: (source.x + target.x) / 2, y: source.y },
     { x: (source.x + target.x) / 2, y: target.y },
     target,
+  ];
+}
+
+/**
+ * Direct two-turn path for a horizontally adjacent pair with a gap too small to
+ * fit full clearance on both ends. It turns as close to the source as a clean
+ * bend allows and gives the remainder to a straight entry into the target.
+ */
+function tightPath(
+  sourceRight: number,
+  targetX: number,
+  sourcePoint: Point,
+  targetPoint: Point,
+): Point[] {
+  const gap = targetX - sourceRight;
+  const exitRun = Math.max(MIN_EXIT_RUN, gap - MIN_RUN);
+  const turnX = sourceRight + exitRun;
+  return [
+    sourcePoint,
+    { x: turnX, y: sourcePoint.y },
+    { x: turnX, y: targetPoint.y },
+    targetPoint,
   ];
 }
 
