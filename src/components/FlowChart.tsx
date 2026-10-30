@@ -23,15 +23,20 @@ import { createPortal } from "react-dom";
 import "@xyflow/react/dist/style.css";
 
 import {
+  chartRoutes,
+  primaryBridgeGaps,
+  splitAtBridges,
+} from "../flow/bridges";
+import {
   buildChartGraph,
   CHART_EXTENT,
-  type ChartEdge,
   type ChartWork,
   type Connection,
   ERA_DIVIDER,
   SIEGE_OF_TERRA_BACKDROP,
 } from "../flow/chart";
 import { nextWorkIds } from "../flow/navigation";
+import { CONNECTION_ORDER, computePorts, type PortSlot } from "../flow/ports";
 import { type Point, routeWorkEdge } from "../flow/routing";
 import { SearchBox } from "./SearchBox";
 import { displayTitle, WorkFace } from "./WorkFace";
@@ -70,16 +75,13 @@ type ZoneData = {
   label: string;
 };
 
-/** Port positions by priority: the first connection sits at the node's center. */
-const PORT_TOPS = ["50%", "25%", "75%"] as const;
-
 function sidePorts(
   prefix: "source" | "target",
-  connections: readonly Connection[],
+  slots: readonly PortSlot[],
 ): Port[] {
-  return connections.map((connection, index) => ({
-    id: `${prefix}-${connection}`,
-    top: PORT_TOPS[index] ?? "50%",
+  return slots.map((slot) => ({
+    id: `${prefix}-${slot.connection}`,
+    top: `${slot.fraction * 100}%`,
   }));
 }
 
@@ -135,12 +137,6 @@ const STROKE: Record<Connection, string> = {
   primary: "#c00000",
   secondary: "#204090",
   tertiary: "#2f8f28",
-};
-
-const CONNECTION_ORDER: Record<Connection, number> = {
-  primary: 0,
-  secondary: 1,
-  tertiary: 2,
 };
 
 const EDGE_STYLE: Record<
@@ -282,9 +278,6 @@ function roundedOrthogonalPath(points: Point[], radius: number): string {
   return d;
 }
 
-/** Routes are static (nodes never move), so compute each one only once. */
-const routeCache = new Map<string, Point[]>();
-
 function TippedEdge({
   id,
   source,
@@ -299,28 +292,29 @@ function TippedEdge({
 }: EdgeProps<Edge<TippedEdgeData, "tipped">>) {
   const connection = data?.connection ?? "primary";
 
-  // Routes are static, so compute each one once. The handle coordinates are in
-  // the key to guard against React Flow's first render, before nodes measure.
-  const routeKey = `${source}|${sourceX}|${sourceY}|${target}|${targetX}|${targetY}`;
-  let route = routeCache.get(routeKey);
-  if (route === undefined) {
-    route = routeWorkEdge(
+  // Routes are static, so the shared map computes each one once. Falling back
+  // to the handle coordinates keeps an edge visible if its node is missing.
+  const route =
+    chartRoutes().get(id) ??
+    routeWorkEdge(
       source,
       target,
       { x: sourceX, y: sourceY },
       { x: targetX, y: targetY },
     );
-    routeCache.set(routeKey, route);
-  }
 
   const shaftPoints = insetRoute(route, SHAFT_INSET[connection]);
-  const edgePath = roundedOrthogonalPath(shaftPoints, BEND_RADIUS);
+  const bridges = primaryBridgeGaps().get(id) ?? [];
+  const edgePath = splitAtBridges(shaftPoints, bridges)
+    .map((piece) => roundedOrthogonalPath(piece, BEND_RADIUS))
+    .join(" ");
+  const tip = route[route.length - 1] ?? { x: targetX, y: targetY };
 
   return (
     <>
       <BaseEdge id={id} path={edgePath} style={style} />
       <path
-        d={TIP[connection](targetX, targetY, targetPosition)}
+        d={TIP[connection](tip.x, tip.y, targetPosition)}
         fill={STROKE[connection]}
       />
     </>
@@ -331,53 +325,9 @@ const edgeTypes = {
   tipped: TippedEdge,
 };
 
-type Ports = {
-  source: Map<string, Connection[]>;
-  target: Map<string, Connection[]>;
-};
-
-/** Collect the distinct connection colors on each side of every node. */
-function computePorts(): Ports {
-  const { edges } = buildChartGraph();
-  const source = new Map<string, Connection[]>();
-  const target = new Map<string, Connection[]>();
-
-  for (const [nodeId, outgoing] of groupBy(edges, (edge) => edge.source)) {
-    source.set(nodeId, distinctConnections(outgoing));
-  }
-
-  for (const [nodeId, incoming] of groupBy(edges, (edge) => edge.target)) {
-    target.set(nodeId, distinctConnections(incoming));
-  }
-
-  return { source, target };
-}
-
-/** Distinct connection colors on one side, in fixed order. Same color shares one port. */
-function distinctConnections(edges: readonly ChartEdge[]): Connection[] {
-  const seen = new Set<Connection>();
-  for (const edge of edges) {
-    seen.add(edge.connection);
-  }
-  return [...seen].sort((a, b) => CONNECTION_ORDER[a] - CONNECTION_ORDER[b]);
-}
-
-function groupBy(
-  edges: readonly ChartEdge[],
-  key: (edge: ChartEdge) => string,
-): Map<string, ChartEdge[]> {
-  const groups = new Map<string, ChartEdge[]>();
-  for (const edge of edges) {
-    const group = groups.get(key(edge)) ?? [];
-    group.push(edge);
-    groups.set(key(edge), group);
-  }
-  return groups;
-}
-
 function chartNodes(): Node[] {
-  const { works, zones } = buildChartGraph();
-  const { source, target } = computePorts();
+  const { works, zones, edges } = buildChartGraph();
+  const { source, target } = computePorts(works, edges);
   const eraNodes: Node[] = [
     {
       id: "siege-backdrop",
