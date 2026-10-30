@@ -310,8 +310,8 @@ describe("work metadata", () => {
     assert.equal(serpentBeneath?.ribbon, false, "The Serpent Beneath ribbon");
   });
 
-  it("keeps the chart at 256 works", () => {
-    assert.equal(graph.works.length, 256);
+  it("keeps the chart at 257 works", () => {
+    assert.equal(graph.works.length, 257);
   });
 });
 
@@ -473,6 +473,21 @@ describe("known connections", () => {
       ["by-the-lion-s-command", "angels-of-caliban", "tertiary"],
       ["fallen-angels", "guardian-of-order", "tertiary"],
       ["the-maste-f-mankin", "dreams-of-unity", "secondary"],
+      ["lucius-the-eternal-blade", "the-cr-the-crimson-king", "primary"],
+      ["the-cr-the-crimson-king", "the-fury-of-magnus", "primary"],
+      ["shortcut-oe-2", "the-fury-of-magnus", "primary"],
+      ["ruinstorm", "slaves-to-darkness", "primary"],
+      ["slaves-to-darkness", "the-buried-dagger", "primary"],
+      ["the-grey-raven-the-grey", "the-buried-dagger", "secondary"],
+      ["patience", "the-buried-dagger", "secondary"],
+      ["child-ofnight", "the-buried-dagger", "secondary"],
+      ["the-damnation-of-pythos", "ruinstorm", "primary"],
+      ["promethean-sun", "forgotten-sons", "tertiary"],
+      ["fallen-angels", "the-iron-within", "tertiary"],
+      ["savage-weapons", "angels-of-caliban", "primary"],
+      ["deathfire", "sons-of-the-forge", "primary"],
+      ["betrayer", "heart-of-the-conqueror", "primary"],
+      ["betrayer", "the-revelation-of-theword", "primary"],
     ] as const;
     for (const [source, target, connection] of corrected) {
       assert.ok(
@@ -489,6 +504,7 @@ describe("known connections", () => {
       ["lost-sons", "all-that-remains"],
       ["the-laurel-of-defiance", "the-heart-of-the-pharos"],
       ["a-rose-watered-with-blood", "perpetual"],
+      ["distant-echoes-of-old-night", "child-of-chaos"],
     ] as const;
     for (const [source, target] of removed) {
       assert.equal(
