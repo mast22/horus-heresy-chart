@@ -77,6 +77,53 @@ check(
         .join(", "),
 );
 
+/**
+ * Column lines come from the full-size works. Shortcuts and audio books sit
+ * between them, so an x is assigned to its nearest line rather than a fixed
+ * pitch. A shortcut badge is allowed to stay in one column because it annotates
+ * the box beside it; every other edge must reach a later column.
+ */
+const columnOrigins = [
+  ...new Set(
+    graph.works
+      .filter((work) => work.kind !== "shortcut" && work.kind !== "audio")
+      .map((work) => work.x),
+  ),
+].sort((a, b) => a - b);
+
+function columnOf(x: number): number {
+  let nearest = 0;
+  for (let index = 1; index < columnOrigins.length; index += 1) {
+    if (
+      Math.abs(columnOrigins[index] - x) < Math.abs(columnOrigins[nearest] - x)
+    ) {
+      nearest = index;
+    }
+  }
+  return nearest;
+}
+
+const nonAdvancing = graph.edges.filter((edge) => {
+  const source = workById.get(edge.source);
+  const target = workById.get(edge.target);
+  if (!source || !target || source.kind === "shortcut") {
+    return false;
+  }
+  return columnOf(target.x) <= columnOf(source.x);
+});
+check(
+  "non-shortcut edges advance a column",
+  nonAdvancing.length === 0,
+  nonAdvancing.length === 0
+    ? `${graph.edges.length} edges progress at least one column (shortcuts exempt)`
+    : nonAdvancing
+        .map(
+          (edge) =>
+            `${edge.id} (${workById.get(edge.source)?.title} -> ${workById.get(edge.target)?.title})`,
+        )
+        .join(", "),
+);
+
 const zoneLabels = [
   "Schism of Mars",
   "Prospero's Sack",
@@ -494,6 +541,22 @@ const correctedConnections = [
   ["know-no-fear", "liar-s-due", "secondary"],
   ["know-no-fear", "hubris-of-monarchia", "secondary"],
   ["the-crimson-fist", "the-unremembered-empire", "primary"],
+  ["the-chamber-at-the-end-of-memory", "the-solar-war", "secondary"],
+  ["terminus", "the-lost-and-the-damned", "primary"],
+  ["the-binary-succession", "the-lost-and-the-damned", "primary"],
+  ["the-maste-f-mankin", "the-board-is-set", "tertiary"],
+  ["the-maste-f-mankin", "the-binary-succession", "primary"],
+  ["bringer-of-sorrow", "saturnine", "primary"],
+  ["ruinstorm", "the-atonement-of-fire", "primary"],
+  ["angels-of-caliban", "luther-first-of-the-fallen", "primary"],
+  ["angels-of-caliban", "ruinstorm", "primary"],
+  ["pharos", "angels-of-caliban", "primary"],
+  ["the-unremembered-empire", "sins-of-the-father-ther", "primary"],
+  ["perpetual", "saturnine", "primary"],
+  ["guardian-of-order", "angels-of-caliban", "tertiary"],
+  ["by-the-lion-s-command", "angels-of-caliban", "tertiary"],
+  ["fallen-angels", "guardian-of-order", "tertiary"],
+  ["the-maste-f-mankin", "dreams-of-unity", "secondary"],
 ] as const;
 for (const [source, target, connection] of correctedConnections) {
   check(
@@ -502,6 +565,53 @@ for (const [source, target, connection] of correctedConnections) {
     `${source} -> ${target}`,
   );
 }
+const dreamsOfUnity = findWork(/dreams of unity/i, /book\s*52/i);
+check(
+  "dreams of unity is a book 52 short story",
+  dreamsOfUnity?.kind === "shortStory" &&
+    /book\s*52/i.test(dreamsOfUnity.publication) &&
+    dreamsOfUnity.zone === null,
+  `${dreamsOfUnity?.kind ?? "missing"} ${dreamsOfUnity?.publication ?? ""} zone=${dreamsOfUnity?.zone ?? "missing"}`,
+);
+check(
+  "master of mankind secondary to dreams of unity",
+  hasEdge(mankind?.id, dreamsOfUnity?.id, "secondary"),
+  `${mankind?.title ?? "missing"} -> ${dreamsOfUnity?.title ?? "missing"}`,
+);
+check(
+  "bringer of sorrow no longer points to the binary succession",
+  !graph.edges.some(
+    (edge) =>
+      edge.source === "bringer-of-sorrow" &&
+      edge.target === "the-binary-succession",
+  ),
+  "bringer-of-sorrow -> the-binary-succession",
+);
+check(
+  "virtues of the sons no longer points to the laurel of defiance",
+  !graph.edges.some(
+    (edge) =>
+      edge.source === "virtues-of-the-sons" &&
+      edge.target === "the-laurel-of-defiance",
+  ),
+  "virtues-of-the-sons -> the-laurel-of-defiance",
+);
+check(
+  "lost sons does not point to all that remains",
+  !graph.edges.some(
+    (edge) => edge.source === "lost-sons" && edge.target === "all-that-remains",
+  ),
+  "lost-sons -> all-that-remains",
+);
+check(
+  "the laurel of defiance does not point to the heart of the pharos",
+  !graph.edges.some(
+    (edge) =>
+      edge.source === "the-laurel-of-defiance" &&
+      edge.target === "the-heart-of-the-pharos",
+  ),
+  "the-laurel-of-defiance -> the-heart-of-the-pharos",
+);
 check(
   "a rose watered with blood no longer points to perpetual",
   !graph.edges.some(
@@ -520,8 +630,8 @@ check(
   `ribbon=${serpentBeneath?.ribbon ?? "missing"}`,
 );
 check(
-  "work count stays 254",
-  graph.works.length === 254,
+  "work count stays 255",
+  graph.works.length === 255,
   `${graph.works.length}`,
 );
 

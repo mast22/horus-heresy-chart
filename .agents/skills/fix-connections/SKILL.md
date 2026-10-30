@@ -6,18 +6,17 @@ description: Use when chart connection directions in src/flow/chart.ts are wrong
 # Fix chart connections
 
 Connection data lives in the `edges` array in `src/flow/chart.ts`; the boxes
-live in `works`. The poster is the source of truth.
+live in `works`.
 
 An edge is directed:
 
 - `source` is the box the stroke leaves.
 - `target` is the box the arrowhead enters.
-- `connection` is `primary` (solid red, solid triangle), `secondary`
-  (dotted blue, diamond head), or `tertiary` (dotted green, circle head).
+- `connection` is the class the user gives: `primary`, `secondary`, or
+  `tertiary`.
 
 Do not infer direction from layout. Two boxes feeding off the same vertical
-spine are siblings, not parent and child, and OCR/tracer output often swaps
-them.
+spine are siblings, not parent and child.
 
 ## Process
 
@@ -34,8 +33,8 @@ them.
    The Last Remembrancer -> Garro             : primary
    ```
 
-   If the user says "has connections to", ask or crop the poster before
-   assuming a direction. The poster settles it.
+   If the user says "has connections to" without a direction, ask the user
+   which box the stroke leaves and which box the arrowhead enters.
 
 3. Inspect the current graph. Endpoint names are title substrings or exact
    ids; an ambiguous title lists the candidates and exits. Pass every title in
@@ -46,34 +45,7 @@ them.
      "The Reflection Crack'd" "Riven" "The Dark King" "Strike and Fade"
    ```
 
-4. Crop only when the poster is the only way to know the direction. Images cost
-   far more context than commands, so skip the crop whenever the user's
-   statement already settles the question. Skip when the user gave an exact
-   `Source -> Target:class`, or asserted an edge is absent (e.g. "X does not
-   have a connection to Y") and the fix only deletes that edge. Crop when:
-
-   - the user did not state the direction;
-   - an existing edge is being reversed;
-   - `--validate` warns about an opposite pair;
-   - two nodes hang off one spine and the owner of a branch is unclear.
-
-   The script measures the real poster borders, because chart coordinates can
-   drift after the uniform alignment pass. It prints the chart and poster
-   coordinates.
-
-   ```bash
-   python3 scripts/fix-connections/crop.py \
-     "The Last Remembrancer" Garro "Ghosts Speak Not" "Child of Night" \
-     --out /tmp/connection-check.png --pad 250
-   ```
-
-   Then open `/tmp/connection-check.png`. Confirm, for each proposed edge:
-
-   - the stroke leaves the source box;
-   - the arrowhead enters the target box;
-   - the stroke colour matches the class.
-
-5. Decide the smallest correct edit in `src/flow/chart.ts`:
+4. Decide the smallest correct edit in `src/flow/chart.ts`:
 
    - **Missing edge** — add one object to `edges`.
    - **Backwards edge** — change `source` and `target` on the existing object
@@ -85,7 +57,7 @@ them.
    `pN-<source-id>-<target-id>` for traced edges and `m-<source-id>-<target-id>`
    for hand-added edges. Match the surrounding style. Existing ids such as
    `the-maste-f-mankin`, `child-ofnight`, and `the-last-remembrancer-ancer-16`
-   are OCR slugs; keep them exactly.
+   are existing slugs; keep them exactly.
 
    Locate the object with the ids printed by `inspect.ts`, then read/edit only
    those lines — never dump a large slice of `chart.ts`:
@@ -94,7 +66,7 @@ them.
    rg -n 'id: "(p38|p77)-' src/flow/chart.ts
    ```
 
-6. Assert the result with the same script. It exits non-zero on a mismatch.
+5. Assert the result with the same script. It exits non-zero on a mismatch.
 
    ```bash
    node --experimental-strip-types scripts/fix-connections/inspect.ts \
@@ -104,9 +76,7 @@ them.
      --validate
    ```
 
-7. Spot-check the crop again if the fix changed which node owns a branch.
-
-8. Validate the project. Filter the long spot-check dump to just the result and
+6. Validate the project. Filter the long spot-check dump to just the result and
    any failures:
 
    ```bash
@@ -118,7 +88,7 @@ them.
    Only act on diagnostics in the files you changed; unrelated pre-existing
    errors are not part of this task.
 
-9. Suggest a commit such as:
+7. Suggest a commit such as:
 
    ```text
    fix: correct chart connection directions
@@ -149,12 +119,9 @@ npm run lint
   spine that leaves The Flight of the Eisenstein. Neither points at the other.
 - **Opposite pairs.** `inspect.ts --validate` warns when the same pair appears
   in both directions. That is usually a broken direction, not two real edges.
-  Crop the pair and keep the arrowhead that the poster shows. Warnings about
-  pairs you did not touch are pre-existing noise; leave them alone.
-- **Long jumps.** `image-recognition/build_graph.py` drops traced edges longer
-  than 3200px that change row by more than 180px. If a long primary is missing,
-  check the "long jumps removed" list in `image-recognition/README.md` before
-  inventing it.
+  Check the pair against the poster and keep the arrowhead that the poster
+  shows. Warnings about pairs you did not touch are pre-existing noise; leave
+  them alone.
 - **Pass-by strokes.** A coloured stroke that stops beside a box, or joins a
   spine without an arrowhead, is not an edge into that box.
 - **Badges.** Shortcut badges (`kind: "shortcut"`) sit on arrow endpoints and
@@ -170,11 +137,7 @@ npm run lint
 | `inspect.ts --reject "<A -> B[:class]>" ...` | Assert an edge is absent; repeatable. |
 | `inspect.ts --validate` | Check dangling endpoints, duplicates, self-loops, and opposite pairs. |
 | `rg -n '<edge-id>' src/flow/chart.ts` | Find the edge object to edit without reading the file. |
-| `python3 scripts/fix-connections/crop.py <titles...> [--pad N] [--out PATH]` | Crop the poster around the nodes for visual verification. |
 | `node --experimental-strip-types scripts/check-graph.ts` | Run the repository graph regression checks. |
-
-The crop script needs Pillow and numpy, the same requirements as the alignment
-scripts (`python3 -m pip install --user -r image-recognition/requirements.txt`).
 
 ## Regression checks
 
