@@ -11,7 +11,10 @@ const pathname = Astro.url.pathname.replace(/\/$/, "") || "/";
 <html lang="en" data-theme-storage-key={THEME_STORAGE_KEY}>
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    >
     <title>{SITE_TITLE}</title>
     <link rel="icon" href="/favicon.ico">
     <script is:inline>
@@ -30,20 +33,106 @@ const pathname = Astro.url.pathname.replace(/\/$/, "") || "/";
     </script>
   </head>
   <body>
-    <header>
+    <header data-menu-open="false">
       <p class="site-title">{SITE_TITLE}</p>
-      <nav aria-label="Pages">
-        {navLinks.map((link) => (
-          <a
-            href={link.href}
-            aria-current={pathname === link.href ? "page" : undefined}
-          >
-            {link.label}
-          </a>
-        ))}
-      </nav>
-      <ThemeToggle storageKey={THEME_STORAGE_KEY} />
+      <button
+        type="button"
+        class="menu-toggle"
+        data-menu-toggle
+        aria-expanded="false"
+        aria-controls="site-menu"
+        aria-label="Open menu"
+      >
+        <svg
+          class="menu-icon menu-icon-open"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path d="M4 7h16"></path>
+          <path d="M4 12h16"></path>
+          <path d="M4 17h16"></path>
+        </svg>
+        <svg
+          class="menu-icon menu-icon-close"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path d="M6 6l12 12"></path>
+          <path d="M18 6L6 18"></path>
+        </svg>
+      </button>
+      <div class="site-menu" id="site-menu" data-menu>
+        <nav aria-label="Pages">
+          {navLinks.map((link) => (
+            <a
+              href={link.href}
+              aria-current={pathname === link.href ? "page" : undefined}
+            >
+              {link.label}
+            </a>
+          ))}
+        </nav>
+        <div class="theme-row">
+          <span class="theme-row-label" aria-hidden="true">Theme</span>
+          <ThemeToggle storageKey={THEME_STORAGE_KEY} />
+        </div>
+      </div>
     </header>
     <slot />
+    <script>
+    const header = document.querySelector<HTMLElement>(
+      "header[data-menu-open]",
+    );
+    const toggle =
+      document.querySelector<HTMLButtonElement>("[data-menu-toggle]");
+    const desktop = window.matchMedia("(min-width: 768px)");
+
+    function setMenu(open: boolean) {
+      if (!header || !toggle) {
+        return;
+      }
+      header.dataset.menuOpen = open ? "true" : "false";
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    }
+
+    toggle?.addEventListener("click", () => {
+      setMenu(toggle.getAttribute("aria-expanded") !== "true");
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (
+        event.key === "Escape" &&
+        toggle?.getAttribute("aria-expanded") === "true"
+      ) {
+        setMenu(false);
+        toggle.focus();
+      }
+    });
+
+    document.addEventListener("pointerdown", (event) => {
+      if (toggle?.getAttribute("aria-expanded") !== "true") {
+        return;
+      }
+      const target = event.target;
+      if (target instanceof Node && !header?.contains(target)) {
+        setMenu(false);
+      }
+    });
+
+    desktop.addEventListener("change", (event) => {
+      if (event.matches) {
+        setMenu(false);
+      }
+    });
+    </script>
   </body>
 </html>
