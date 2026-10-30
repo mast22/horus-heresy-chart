@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 
 import { buildChartGraph } from "../src/flow/chart.ts";
 import { FACTION_COLORS, factionsFor } from "../src/flow/legions.ts";
@@ -6,12 +6,7 @@ import { nextWorkIds } from "../src/flow/navigation.ts";
 import { search } from "../src/flow/search.ts";
 import { selectionFor } from "../src/flow/selection.ts";
 import { workDetails } from "../src/flow/work-details.ts";
-import {
-  creditPageBody,
-  extractPageCopy,
-  howToPageBody,
-  renderSectionHtml,
-} from "../src/site/copy.ts";
+import { extractPageCopy } from "../src/site/copy.ts";
 import { navLinks, SITE_TITLE } from "../src/site/nav.ts";
 import {
   chartControlConfig,
@@ -112,8 +107,6 @@ check(
     emptyCopy.remaining === "",
   `credit ${emptyCopy.credit.length} how-to ${emptyCopy.howTo.length}`,
 );
-
-
 
 const creditPage = readFileSync("src/pages/credit.astro", "utf8");
 const howToPage = readFileSync("src/pages/how-to-use-this-chart.astro", "utf8");
