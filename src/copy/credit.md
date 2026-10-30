@@ -25,9 +25,14 @@ Acknowledgments:
 ZaDoug (graphics advice),  
 Crabouyator &amp; HorseMate (links)  
 Ghost &amp; Talos (proofreading)  
-[Bakadesign.dk](http://Bakadesign.dk) (icons)  
+[Bakadesign.dk](https://Bakadesign.dk) (icons)  
 Tymellsheresy website (dramatis personae)  
-[Lexicanum.com](http://Lexicanum.com) (articles, list of short stories &amp; others)  
+[Lexicanum.com](https://Lexicanum.com) (articles, list of short stories &amp; others)  
 BlackLibrary writers and staff that made this series happen
 
 **27/05/2021**
+
+
+
+# Website developed by
+[Nikolai Kozhenin](https://voilin.net/)

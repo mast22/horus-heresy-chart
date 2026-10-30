@@ -5,8 +5,8 @@ import {
   buildChartGraph,
   type ChartEdge,
   type ChartWork,
-  type Connection,
 } from "../src/flow/chart.ts";
+import { computePorts, portFraction } from "../src/flow/ports.ts";
 import {
   MIN_EXIT_RUN,
   MIN_RUN,
@@ -21,12 +21,7 @@ const worksById = new Map<string, ChartWork>(
   graph.works.map((work) => [work.id, work]),
 );
 
-const PORT_TOPS = [0.5, 0.25, 0.75] as const;
-const CONNECTION_ORDER: Record<Connection, number> = {
-  primary: 0,
-  secondary: 1,
-  tertiary: 2,
-};
+const ports = computePorts(graph.works, graph.edges);
 
 /**
  * Poster-accurate overlaps where a shortcut badge (30x30) sits on top of a
@@ -34,34 +29,6 @@ const CONNECTION_ORDER: Record<Connection, number> = {
  * cannot avoid the overlap without moving the badge in `src/flow/chart.ts`.
  */
 const KNOWN_CROSSINGS = new Set(["s123-badge-8-scars:the-thirteenth-wolf"]);
-
-function groupEdges(
-  key: (edge: ChartEdge) => string,
-): Map<string, ChartEdge[]> {
-  const groups = new Map<string, ChartEdge[]>();
-  for (const edge of graph.edges) {
-    const group = groups.get(key(edge)) ?? [];
-    group.push(edge);
-    groups.set(key(edge), group);
-  }
-  return groups;
-}
-
-const outgoing = groupEdges((edge) => edge.source);
-const incoming = groupEdges((edge) => edge.target);
-
-function portTop(
-  groups: Map<string, ChartEdge[]>,
-  nodeId: string,
-  connection: Connection,
-): number {
-  const edges = groups.get(nodeId) ?? [];
-  const distinct = [...new Set(edges.map((edge) => edge.connection))].sort(
-    (a, b) => CONNECTION_ORDER[a] - CONNECTION_ORDER[b],
-  );
-  const index = distinct.indexOf(connection);
-  return PORT_TOPS[index] ?? 0.5;
-}
 
 function segmentHitsRect(
   x1: number,
@@ -95,11 +62,15 @@ const routes: RouteFailure[] = graph.edges.map((edge) => {
 
   const sourcePoint: Point = {
     x: source.x + source.w,
-    y: source.y + source.h * portTop(outgoing, edge.source, edge.connection),
+    y:
+      source.y +
+      source.h * portFraction(ports.source, edge.source, edge.connection),
   };
   const targetPoint: Point = {
     x: target.x,
-    y: target.y + target.h * portTop(incoming, edge.target, edge.connection),
+    y:
+      target.y +
+      target.h * portFraction(ports.target, edge.target, edge.connection),
   };
 
   return {
@@ -123,6 +94,25 @@ describe("routing geometry", () => {
       unrouted.map(edgeName),
       [],
       `${unrouted.length} edges have fewer than two points`,
+    );
+  });
+
+  it("routes every shortcut connection as a straight line", () => {
+    const failures = routedRoutes().filter(({ edge, route }) => {
+      const source = worksById.get(edge.source);
+      const target = worksById.get(edge.target);
+      const isShortcut =
+        source?.kind === "shortcut" || target?.kind === "shortcut";
+      if (!isShortcut) {
+        return false;
+      }
+      const y = route[0].y;
+      return route.some((point) => point.y !== y);
+    });
+    assert.deepEqual(
+      failures.map(edgeName),
+      [],
+      `${failures.length} shortcut connections bend`,
     );
   });
 
@@ -188,6 +178,11 @@ describe("routing geometry", () => {
     for (const { edge, route } of routedRoutes()) {
       for (const work of graph.works) {
         if (work.id === edge.source || work.id === edge.target) {
+          continue;
+        }
+        // Shortcut badges annotate an endpoint and may sit on the line, so
+        // they are not routing obstacles like full-size works are.
+        if (work.kind === "shortcut") {
           continue;
         }
         const rect: Rect = { x: work.x, y: work.y, w: work.w, h: work.h };

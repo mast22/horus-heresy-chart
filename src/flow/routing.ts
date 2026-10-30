@@ -54,6 +54,15 @@ const rectById = new Map<string, Rect>(
 // instances, so the source/target exclusion can compare by reference.
 const rects: Rect[] = [...rectById.values()];
 
+// Shortcut badges annotate a line rather than occupy it, so edges pass under
+// them instead of routing around a 30x30 label.
+const shortcutRects = new Set<Rect>(
+  works
+    .filter((work) => work.kind === "shortcut")
+    .map((work) => rectById.get(work.id))
+    .filter((rect): rect is Rect => rect !== undefined),
+);
+
 function inflate(rect: Rect, amount: number): Rect {
   return {
     x: rect.x - amount,
@@ -201,8 +210,9 @@ export function routeWorkEdge(
         (rect) =>
           rect !== source &&
           rect !== target &&
-          // A node that sits on top of the source (a shortcut badge or audio
-          // capsule overlapping a work) must not trap the outgoing stroke.
+          !shortcutRects.has(rect) &&
+          // A node that sits on top of the source (an audio capsule
+          // overlapping a work) must not trap the outgoing stroke.
           !overlaps(rect, source),
       )
       .map((rect) => inflate(rect, MARGIN)),
@@ -396,6 +406,9 @@ function tightPath(
   sourcePoint: Point,
   targetPoint: Point,
 ): Point[] {
+  if (sourcePoint.y === targetPoint.y) {
+    return [sourcePoint, targetPoint];
+  }
   const gap = targetX - sourceRight;
   const exitRun = Math.max(MIN_EXIT_RUN, gap - MIN_RUN);
   const turnX = sourceRight + exitRun;

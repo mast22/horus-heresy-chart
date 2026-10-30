@@ -266,6 +266,9 @@ function roundedOrthogonalPath(points: Point[], radius: number): string {
     const next = points[i + 1];
     const inLen = Math.hypot(curr.x - prev.x, curr.y - prev.y);
     const outLen = Math.hypot(next.x - curr.x, next.y - curr.y);
+    if (inLen === 0 || outLen === 0) {
+      continue;
+    }
     const r = Math.min(radius, inLen / 2, outLen / 2);
     const inX = curr.x - ((curr.x - prev.x) / inLen) * r;
     const inY = curr.y - ((curr.y - prev.y) / inLen) * r;
