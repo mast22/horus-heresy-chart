@@ -80,7 +80,7 @@ Run the poster pass first, then the uniform pass if even spacing is wanted.
    ```bash
    npm run lint
    npm run check
-   node --experimental-strip-types scripts/check-graph.ts
+   node --test tests/graph.test.ts
    ```
 
 7. Suggest a commit such as:

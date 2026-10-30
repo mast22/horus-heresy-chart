@@ -148,7 +148,7 @@ A gold ribbon is more than 70 gold pixels in the 52px strip under the box. Gold 
 
 `build_graph.py` replaces the title and the publication with the 3× read when that read is usable. An arrow still counts only on the publication line. A bullet on some other line, such as a decorative `•..` inside the box, does not turn a novel into a short story. Mechanicum stays `Book 9`, kind `novel`.
 
-`bands.py` measures the fills. `extract_nodes.py` calls `measure_bands` on each work box and writes `fills`. `build_graph.py` copies that list into `color` as hex strings. A work written before `fills` existed falls back to a one-element list of the legacy `fill`. Faction still snaps each channel of that single `fill` to a multiple of 32. Ink is `#1c1917` when that fill's luminance is above 155, and `#f6f1e6` otherwise. The page does not paint from `text`. `scripts/check-colors.ts` calls the same `measure_bands` function and does not keep a second copy of the measurement.
+`bands.py` measures the fills. `extract_nodes.py` calls `measure_bands` on each work box and writes `fills`. `build_graph.py` copies that list into `color` as hex strings. A work written before `fills` existed falls back to a one-element list of the legacy `fill`. Faction still snaps each channel of that single `fill` to a multiple of 32. Ink is `#1c1917` when that fill's luminance is above 155, and `#f6f1e6` otherwise. The page does not paint from `text`. `tests/colors.test.ts` uses the same `measure_bands` function and does not keep a second copy of the measurement.
 
 One fill that spans the box stays one colour. A black fill stays black; the light type on it is not a colour. Glyph ink, the black border, gold ribbons, antialiased fringes, and the page showing in a rounded corner are not colours. A stripe about 6px tall that still spans the node counts. A pale cream or light-gray fill counts when it fills the band. Adjacent rows of the same fill are one band. A page-like cap is not merged into a real fill, so a cream badge is not trimmed away with the paper.
 
@@ -195,7 +195,7 @@ These are the numbers recorded for this poster. A newer Vision model can change 
 | Tracer               | about 175 edges, before hand edits                                                                |
 | `scan_boxes.py`      | 947 rules, 145 paired boxes, 0 known novels missed                                                |
 
-The shipped page, after the hand edits, has 245 Horus Heresy works, 8 Siege of Terra works, 176 edges, 29 ribboned works, and 28 shortcut badges. `scripts/check-graph.ts` checks that graph. It does not check `ocr/out/`.
+The shipped page, after the hand edits, has 245 Horus Heresy works, 8 Siege of Terra works, 176 edges, 29 ribboned works, and 28 shortcut badges. `tests/graph.test.ts` checks that graph. It does not check `ocr/out/`.
 
 ## FAQ
 
@@ -298,7 +298,7 @@ print("only in draft", sorted(ids(draft, "w") - ids(shipped, "w"))[:40])
 PY
 ```
 
-Run `node --experimental-strip-types scripts/check-graph.ts` against the shipped module after any edit you do keep. That script imports `src/flow/chart.ts`.
+Run `node --test tests/graph.test.ts` against the shipped module after any edit you do keep. That test imports `src/flow/chart.ts`.
 
 ## Hand edits the draft does not contain
 

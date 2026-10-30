@@ -1,3 +1,5 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -5,23 +7,12 @@ import { inkFor, WorkFace } from "../src/components/WorkFace.ts";
 import { buildChartGraph, type ChartWork } from "../src/flow/chart.ts";
 
 const graph = buildChartGraph();
-const lines: string[] = [];
-const failures: string[] = [];
-
-function check(name: string, ok: boolean, detail: string) {
-  lines.push(`${ok ? "PASS" : "FAIL"} ${name}: ${detail}`);
-  if (!ok) {
-    failures.push(name);
-  }
-}
 
 function findWork(title: RegExp): ChartWork {
   const work = graph.works.find(
     (item) => item.kind !== "shortcut" && title.test(item.title),
   );
-  if (!work) {
-    throw new Error(`missing ${title}`);
-  }
+  assert.ok(work, `missing ${title}`);
   return work;
 }
 
@@ -74,41 +65,35 @@ const cases: Array<{
   { label: "Mechanicum", title: /^mechanicum$/i, count: 1, shape: "round" },
 ];
 
-for (const item of cases) {
-  const work = findWork(item.title);
-  const html = paint(work);
-  const bands = readBands(html);
-  const shape = html.match(/data-shape="(chamfer|round)"/)?.[1];
-  const colorsMatch =
-    bands.length === work.color.length &&
-    bands.every(
-      (band, index) => band.color === work.color[index].toLowerCase(),
-    );
-  const inksMatch = bands.every((band) => band.ink === inkFor(band.color));
-  const flat =
-    bands.length > 1 && bands.every((band) => band.color === bands[0].color);
-  check(
-    `${item.label} bands ${item.count}`,
-    bands.length === item.count &&
-      work.color.length === item.count &&
-      colorsMatch &&
-      inksMatch &&
-      shape === item.shape &&
-      !flat,
-    `shape ${shape} bands ${bands.map((band) => band.color).join(" ")} inks ${bands.map((band) => band.ink).join(" ")}`,
-  );
-}
+describe("work face paint", () => {
+  for (const item of cases) {
+    it(`paints ${item.label} as ${item.count} band(s) with matching ink`, () => {
+      const work = findWork(item.title);
+      const html = paint(work);
+      const bands = readBands(html);
+      const shape = html.match(/data-shape="(chamfer|round)"/)?.[1];
+      const colorsMatch =
+        bands.length === work.color.length &&
+        bands.every(
+          (band, index) => band.color === work.color[index].toLowerCase(),
+        );
+      const inksMatch = bands.every((band) => band.ink === inkFor(band.color));
+      const flat =
+        bands.length > 1 &&
+        bands.every((band) => band.color === bands[0].color);
 
-const ordo = readBands(paint(findWork(/ordo sinister/i)));
-check(
-  "Ordo Sinister ink differs by band",
-  ordo.length === 2 && ordo[0].ink !== ordo[1].ink,
-  ordo.map((band) => band.ink).join(" "),
-);
+      assert.equal(bands.length, item.count, "band count");
+      assert.equal(work.color.length, item.count, "stored color count");
+      assert.ok(colorsMatch, "rendered colors match the chart");
+      assert.ok(inksMatch, "each band uses the ink for its fill");
+      assert.equal(shape, item.shape, "shape");
+      assert.equal(flat, false, "bands are not one flat color");
+    });
+  }
 
-console.log(lines.join("\n"));
-if (failures.length > 0) {
-  console.error(`RESULT fail ${failures.join(", ")}`);
-  process.exit(1);
-}
-console.log("RESULT pass");
+  it("uses different ink on Ordo Sinister's two bands", () => {
+    const bands = readBands(paint(findWork(/ordo sinister/i)));
+    assert.equal(bands.length, 2);
+    assert.notEqual(bands[0].ink, bands[1].ink);
+  });
+});

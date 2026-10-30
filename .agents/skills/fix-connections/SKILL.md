@@ -76,13 +76,12 @@ spine are siblings, not parent and child.
      --validate
    ```
 
-6. Validate the project. Filter the long spot-check dump to just the result and
-   any failures:
+6. Validate the project:
 
    ```bash
    npm run lint
    npm run check
-   node --experimental-strip-types scripts/check-graph.ts 2>&1 | rg "RESULT|FAIL"
+   node --test tests/graph.test.ts
    ```
 
    Only act on diagnostics in the files you changed; unrelated pre-existing
@@ -107,7 +106,7 @@ node --experimental-strip-types scripts/fix-connections/inspect.ts \
   --reject "The Reflection Crack'd -> Riven" \
   --reject "The Dark King -> Strike and Fade" \
   --validate
-node --experimental-strip-types scripts/check-graph.ts 2>&1 | rg "RESULT|FAIL"
+node --test tests/graph.test.ts
 npm run lint
 ```
 
@@ -137,10 +136,10 @@ npm run lint
 | `inspect.ts --reject "<A -> B[:class]>" ...` | Assert an edge is absent; repeatable. |
 | `inspect.ts --validate` | Check dangling endpoints, duplicates, self-loops, and opposite pairs. |
 | `rg -n '<edge-id>' src/flow/chart.ts` | Find the edge object to edit without reading the file. |
-| `node --experimental-strip-types scripts/check-graph.ts` | Run the repository graph regression checks. |
+| `node --test tests/graph.test.ts` | Run the repository graph regression tests. |
 
 ## Regression checks
 
-When a fixed connection is important, add it to `scripts/check-graph.ts` so
+When a fixed connection is important, add it to `tests/graph.test.ts` so
 the next edit cannot silently undo it. The Last Remembrancer example asserts
 both primary targets and the sibling edge from The Flight of the Eisenstein.

@@ -30,7 +30,7 @@ node --experimental-strip-types scripts/fix-connections/inspect.ts \
 ```
 
 Validate with `npm run lint`, `npm run check`, and
-`node --experimental-strip-types scripts/check-graph.ts`. Add an important
-fixed direction to `scripts/check-graph.ts` so it stays fixed.
+`node --test tests/graph.test.ts`. Add an important
+fixed direction to `tests/graph.test.ts` so it stays fixed.
 
 Arguments: $ARGUMENTS

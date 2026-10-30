@@ -106,6 +106,13 @@ export const workDetails: Readonly<Record<string, WorkDetails>> = {
     description:
       "Malcador and the Emperor play a game that foreshadows the battles of the Heresy.",
   },
+  "dreams-of-unity": {
+    author: "Nick Kyme",
+    year: 2017,
+    length: "20 pages",
+    description:
+      "A surviving Thunder Warrior hunts his mentor's killer and confronts an Alpha Legion incursion.",
+  },
   "blood-games": {
     author: "Dan Abnett",
     year: 2009,

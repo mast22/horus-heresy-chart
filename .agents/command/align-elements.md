@@ -32,6 +32,6 @@ Show the fitted pitches and line shifts before writing. Do not run the poster
 pass after the uniform pass.
 
 Then re-run the detector(s) and validate with `npm run lint`, `npm run check`,
-and `node --experimental-strip-types scripts/check-graph.ts`.
+and `node --test tests/graph.test.ts`.
 
 Arguments: $ARGUMENTS
