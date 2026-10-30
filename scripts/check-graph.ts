@@ -557,6 +557,17 @@ const correctedConnections = [
   ["by-the-lion-s-command", "angels-of-caliban", "tertiary"],
   ["fallen-angels", "guardian-of-order", "tertiary"],
   ["the-maste-f-mankin", "dreams-of-unity", "secondary"],
+  ["scars", "daemonology", "primary"],
+  ["scars", "allegiance", "primary"],
+  ["scars", "wolf-king", "primary"],
+  ["brotherhood-of-the-moon", "the-pa-the-path-of-heaven", "primary"],
+  ["allegiance", "the-pa-the-path-of-heaven", "primary"],
+  ["daemonology", "the-pa-the-path-of-heaven", "primary"],
+  ["allegiance", "vengeful-spirit", "primary"],
+  ["daemonology", "vengeful-spirit", "primary"],
+  ["prospero-ero-burns", "the-cr-the-crimson-king", "primary"],
+  ["a-thousand-sons", "the-outcast-dead", "secondary"],
+  ["shortcut-ae-3", "lucius-the-eternal-blade", "primary"],
 ] as const;
 for (const [source, target, connection] of correctedConnections) {
   check(
@@ -630,8 +641,8 @@ check(
   `ribbon=${serpentBeneath?.ribbon ?? "missing"}`,
 );
 check(
-  "work count stays 255",
-  graph.works.length === 255,
+  "work count stays 256",
+  graph.works.length === 256,
   `${graph.works.length}`,
 );
 
