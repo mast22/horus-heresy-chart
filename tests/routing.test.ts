@@ -1,18 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { chartRoutes } from "../src/flow/bridges.ts";
 import {
   buildChartGraph,
   type ChartEdge,
   type ChartWork,
 } from "../src/flow/chart.ts";
-import { computePorts, portFraction } from "../src/flow/ports.ts";
-import {
-  MIN_EXIT_RUN,
-  MIN_RUN,
-  type Point,
-  routeWorkEdge,
-} from "../src/flow/routing.ts";
+import { MIN_EXIT_RUN, MIN_RUN, type Point } from "../src/flow/routing.ts";
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -20,8 +15,6 @@ const graph = buildChartGraph();
 const worksById = new Map<string, ChartWork>(
   graph.works.map((work) => [work.id, work]),
 );
-
-const ports = computePorts(graph.works, graph.edges);
 
 /**
  * Poster-accurate overlaps where a shortcut badge (30x30) sits on top of a
@@ -54,28 +47,15 @@ type RouteFailure = {
   route: Point[];
 };
 
-const routes: RouteFailure[] = graph.edges.map((edge) => {
-  const source = worksById.get(edge.source);
-  const target = worksById.get(edge.target);
-  assert.ok(source, `missing source work ${edge.source}`);
-  assert.ok(target, `missing target work ${edge.target}`);
+const bundledRoutes = chartRoutes();
 
-  const sourcePoint: Point = {
-    x: source.x + source.w,
-    y:
-      source.y +
-      source.h * portFraction(ports.source, edge.source, edge.connection),
-  };
-  const targetPoint: Point = {
-    x: target.x,
-    y:
-      target.y +
-      target.h * portFraction(ports.target, edge.target, edge.connection),
-  };
+const routes: RouteFailure[] = graph.edges.map((edge) => {
+  assert.ok(worksById.has(edge.source), `missing source work ${edge.source}`);
+  assert.ok(worksById.has(edge.target), `missing target work ${edge.target}`);
 
   return {
     edge,
-    route: routeWorkEdge(edge.source, edge.target, sourcePoint, targetPoint),
+    route: bundledRoutes.get(edge.id) ?? [],
   };
 });
 
@@ -204,6 +184,90 @@ describe("routing geometry", () => {
       unexpected,
       [],
       `${crossings.length} crossings, ${unexpected.length} unexpected`,
+    );
+  });
+});
+
+type Vertical = { x: number; top: number; bottom: number };
+
+function verticals(route: readonly Point[]): Vertical[] {
+  const segments: Vertical[] = [];
+  for (let i = 0; i < route.length - 1; i++) {
+    const a = route[i];
+    const b = route[i + 1];
+    if (a.x === b.x && a.y !== b.y) {
+      segments.push({
+        x: a.x,
+        top: Math.min(a.y, b.y),
+        bottom: Math.max(a.y, b.y),
+      });
+    }
+  }
+  return segments;
+}
+
+/** The x where two routes run a shared vertical trunk, if they do. */
+function sharedVerticalLane(
+  a: readonly Point[],
+  b: readonly Point[],
+): number | undefined {
+  for (const left of verticals(a)) {
+    for (const right of verticals(b)) {
+      if (
+        left.x === right.x &&
+        Math.min(left.bottom, right.bottom) > Math.max(left.top, right.top)
+      ) {
+        return left.x;
+      }
+    }
+  }
+  return undefined;
+}
+
+describe("trunk bundling", () => {
+  function routeOf(edgeId: string): Point[] {
+    const route = bundledRoutes.get(edgeId);
+    assert.ok(route, `missing route ${edgeId}`);
+    return route;
+  }
+
+  it("merges same-colour edges that leave one source", () => {
+    const trunks = [
+      {
+        name: "The Flight of the Eisenstein spine",
+        a: routeOf(
+          "m-the-flight-of-the-eisenstein-the-last-remembrancer-ancer-16",
+        ),
+        b: routeOf("m-the-flight-of-the-eisenstein-child-ofnight"),
+      },
+      {
+        name: "The Master of Mankind downward branch",
+        a: routeOf("p166-the-maste-f-mankin-magisterium"),
+        b: routeOf("m-the-maste-f-mankin-the-binary-succession"),
+      },
+    ];
+
+    for (const { name, a, b } of trunks) {
+      assert.notEqual(
+        sharedVerticalLane(a, b),
+        undefined,
+        `${name} draws parallel trunks`,
+      );
+    }
+  });
+
+  it("merges same-colour edges that feed one target in front of it", () => {
+    const either = routeOf("m-the-either-old-earth");
+    const handElect = routeOf("m-the-hand-elect-old-earth");
+    const lane = sharedVerticalLane(either, handElect);
+
+    assert.notEqual(lane, undefined, "Old Earth approaches never merge");
+
+    const hand = worksById.get("the-hand-elect");
+    assert.ok(hand);
+    assert.ok(
+      (lane ?? 0) > hand.x + hand.w,
+      "The Either joins behind The Hand Elect instead of in front of it",
     );
   });
 });

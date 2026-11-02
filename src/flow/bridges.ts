@@ -12,7 +12,7 @@
 
 import { buildChartGraph, type ChartEdge, type ChartWork } from "./chart.ts";
 import { computePorts, type Ports, portFraction } from "./ports.ts";
-import { type Point, routeWorkEdge } from "./routing.ts";
+import { type Point, routeThroughLane, routeWorkEdge } from "./routing.ts";
 
 /** Total width of the break in the lower line at a bridge. */
 export const BRIDGE_GAP = 18;
@@ -106,29 +106,121 @@ export function splitAtBridges(
   return pieces.length > 0 ? pieces : [points.slice()];
 }
 
+type Endpoints = { source: Point; target: Point };
+
 function buildRoutes(): Map<string, Point[]> {
   const { works, edges } = buildChartGraph();
   const worksById = new Map(works.map((work) => [work.id, work]));
   const ports = computePorts(works, edges);
-  const routes = new Map<string, Point[]>();
 
+  const endpoints = new Map<string, Endpoints>();
   for (const edge of edges) {
     const source = worksById.get(edge.source);
     const target = worksById.get(edge.target);
     if (!source || !target) continue;
+    endpoints.set(edge.id, {
+      source: sourcePoint(source, edge, ports),
+      target: targetPoint(target, edge, ports),
+    });
+  }
 
-    routes.set(
+  const baseline = new Map<string, Point[]>();
+  for (const edge of edges) {
+    const points = endpoints.get(edge.id);
+    if (!points) continue;
+    baseline.set(
       edge.id,
-      routeWorkEdge(
-        edge.source,
-        edge.target,
-        sourcePoint(source, edge, ports),
-        targetPoint(target, edge, ports),
-      ),
+      routeWorkEdge(edge.source, edge.target, points.source, points.target),
     );
   }
 
+  // First merge the links that leave one box, then the links that feed one box.
+  // The target pass wins when an edge belongs to both, so convergence happens
+  // immediately before the box the arrows enter.
+  const routes = new Map(baseline);
+  applyBundles("source", edges, endpoints, baseline, routes);
+  applyBundles("target", edges, endpoints, baseline, routes);
   return routes;
+}
+
+/**
+ * Give same-colour links that touch one box a shared vertical lane. The lane is
+ * taken from the ordinary routes, so it is already clear of every work; the
+ * first candidate that every member can reach safely is used.
+ */
+function applyBundles(
+  side: "source" | "target",
+  edges: readonly ChartEdge[],
+  endpoints: ReadonlyMap<string, Endpoints>,
+  baseline: ReadonlyMap<string, Point[]>,
+  routes: Map<string, Point[]>,
+): void {
+  for (const group of groupsOf(edges, side)) {
+    if (group.length < 2) continue;
+
+    const members = group.filter((edge) => endpoints.has(edge.id));
+    if (members.length < 2) continue;
+
+    const lanes = candidateLanes(members, baseline);
+    for (const lane of lanes) {
+      const rebuilt = members.map((edge) => {
+        const points = endpoints.get(edge.id);
+        return points
+          ? routeThroughLane(
+              edge.source,
+              edge.target,
+              points.source,
+              points.target,
+              lane,
+            )
+          : undefined;
+      });
+
+      if (rebuilt.some((route) => route === undefined)) continue;
+
+      for (let index = 0; index < members.length; index++) {
+        const route = rebuilt[index];
+        if (route) routes.set(members[index].id, route);
+      }
+      break;
+    }
+  }
+}
+
+function groupsOf(
+  edges: readonly ChartEdge[],
+  side: "source" | "target",
+): ChartEdge[][] {
+  const groups = new Map<string, ChartEdge[]>();
+  for (const edge of edges) {
+    const node = side === "source" ? edge.source : edge.target;
+    const key = `${edge.connection}|${node}`;
+    const group = groups.get(key) ?? [];
+    group.push(edge);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
+/** Vertical lanes used by a group's ordinary routes, most common first. */
+function candidateLanes(
+  members: readonly ChartEdge[],
+  baseline: ReadonlyMap<string, Point[]>,
+): number[] {
+  const counts = new Map<number, number>();
+  for (const edge of members) {
+    const route = baseline.get(edge.id) ?? [];
+    for (let i = 0; i < route.length - 1; i++) {
+      const a = route[i];
+      const b = route[i + 1];
+      if (a.x === b.x && a.y !== b.y) {
+        counts.set(a.x, (counts.get(a.x) ?? 0) + 1);
+      }
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+    .map(([lane]) => lane);
 }
 
 function sourcePoint(source: ChartWork, edge: ChartEdge, ports: Ports): Point {

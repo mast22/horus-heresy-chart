@@ -205,17 +205,7 @@ export function routeWorkEdge(
   }
 
   const obstacles: Rect[] = [
-    ...rects
-      .filter(
-        (rect) =>
-          rect !== source &&
-          rect !== target &&
-          !shortcutRects.has(rect) &&
-          // A node that sits on top of the source (an audio capsule
-          // overlapping a work) must not trap the outgoing stroke.
-          !overlaps(rect, source),
-      )
-      .map((rect) => inflate(rect, MARGIN)),
+    ...obstaclesFor(source, target),
     // Reserve a straight exit lane to the right of the source and a straight
     // entry lane to the left of the target. The trunk runs between these two
     // bands; the straight runs themselves are appended below.
@@ -233,6 +223,64 @@ export function routeWorkEdge(
     sourcePoint,
     targetPoint,
   );
+}
+
+/** Every work an edge between `source` and `target` must route around. */
+function obstaclesFor(source: Rect, target: Rect): Rect[] {
+  return rects
+    .filter(
+      (rect) =>
+        rect !== source &&
+        rect !== target &&
+        !shortcutRects.has(rect) &&
+        // A node that sits on top of the source (an audio capsule overlapping
+        // a work) must not trap the outgoing stroke.
+        !overlaps(rect, source),
+    )
+    .map((rect) => inflate(rect, MARGIN));
+}
+
+/**
+ * A clean orthogonal route through a shared vertical lane: leave the source
+ * rightward, run along the lane, then enter the target from the left. Returns
+ * `undefined` when the lane would violate clearance or hit another work, so the
+ * caller can fall back to the ordinary route.
+ */
+export function routeThroughLane(
+  sourceId: string,
+  targetId: string,
+  sourcePoint: Point,
+  targetPoint: Point,
+  laneX: number,
+): Point[] | undefined {
+  const source = rectById.get(sourceId);
+  const target = rectById.get(targetId);
+  if (!source || !target) return undefined;
+
+  const sourceRight = source.x + source.w;
+  if (laneX < sourceRight + MIN_EXIT_RUN) return undefined;
+  if (laneX > target.x - MIN_RUN) return undefined;
+
+  const points: Point[] =
+    sourcePoint.y === targetPoint.y
+      ? [sourcePoint, targetPoint]
+      : [
+          sourcePoint,
+          { x: laneX, y: sourcePoint.y },
+          { x: laneX, y: targetPoint.y },
+          targetPoint,
+        ];
+
+  const obstacles = obstaclesFor(source, target);
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    for (const obstacle of obstacles) {
+      if (segmentHitsRect(a.x, a.y, b.x, b.y, obstacle)) return undefined;
+    }
+  }
+
+  return simplify(points, sourcePoint, targetPoint);
 }
 
 /**
