@@ -19,6 +19,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   useSyncExternalStore,
@@ -97,9 +98,34 @@ type WorkData = {
   targetPorts: Port[];
 };
 
+type ZonePart = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+type ZoneGap = {
+  x: number;
+  y: number;
+};
+
 type ZoneData = {
+  parts: readonly ZonePart[];
+  gaps: readonly ZoneGap[];
+};
+
+type ZoneLabelData = {
   label: string;
 };
+
+type BoundarySegment = {
+  a: [number, number];
+  b: [number, number];
+};
+
+const ZONE_STROKE = 8;
+const ZONE_BRIDGE_GAP = 32;
 
 function sidePorts(
   prefix: "source" | "target",
@@ -136,12 +162,232 @@ function WorkNode({ data }: NodeProps<Node<WorkData, "work">>) {
   );
 }
 
+/** Outer boundary of a union of axis-aligned rectangles. */
+function zoneBoundary(parts: readonly ZonePart[]): BoundarySegment[] {
+  const xs = [...new Set(parts.flatMap((p) => [p.x, p.x + p.w]))].sort(
+    (a, b) => a - b,
+  );
+  const ys = [...new Set(parts.flatMap((p) => [p.y, p.y + p.h]))].sort(
+    (a, b) => a - b,
+  );
+  const covered = (x: number, y: number) =>
+    parts.some((p) => p.x < x && p.x + p.w > x && p.y < y && p.y + p.h > y);
+
+  const segments: BoundarySegment[] = [];
+  for (let xi = 0; xi < xs.length - 1; xi += 1) {
+    for (let yi = 0; yi < ys.length - 1; yi += 1) {
+      const cx = (xs[xi] + xs[xi + 1]) / 2;
+      const cy = (ys[yi] + ys[yi + 1]) / 2;
+      if (!covered(cx, cy)) {
+        continue;
+      }
+      if (!covered(cx, ys[yi])) {
+        segments.push({
+          a: [xs[xi], ys[yi]],
+          b: [xs[xi + 1], ys[yi]],
+        });
+      }
+      if (!covered(cx, ys[yi + 1])) {
+        segments.push({
+          a: [xs[xi], ys[yi + 1]],
+          b: [xs[xi + 1], ys[yi + 1]],
+        });
+      }
+      if (!covered(xs[xi], cy)) {
+        segments.push({
+          a: [xs[xi], ys[yi]],
+          b: [xs[xi], ys[yi + 1]],
+        });
+      }
+      if (!covered(xs[xi + 1], cy)) {
+        segments.push({
+          a: [xs[xi + 1], ys[yi]],
+          b: [xs[xi + 1], ys[yi + 1]],
+        });
+      }
+    }
+  }
+  return segments;
+}
+
+function zoneOutlinePath(
+  parts: readonly ZonePart[],
+  segments = zoneBoundary(parts),
+): string {
+  const key = ([x, y]: [number, number]) => `${x},${y}`;
+  const at = new Map<string, BoundarySegment[]>();
+  for (const segment of segments) {
+    for (const point of [segment.a, segment.b]) {
+      const bucket = at.get(key(point)) ?? [];
+      bucket.push(segment);
+      at.set(key(point), bucket);
+    }
+  }
+
+  const used = new Set<BoundarySegment>();
+  const paths: string[] = [];
+  for (const first of segments) {
+    if (used.has(first)) {
+      continue;
+    }
+    used.add(first);
+    let end = first.b;
+    const points = [first.a, first.b];
+    while (key(end) !== key(first.a)) {
+      const next = (at.get(key(end)) ?? []).find(
+        (segment) => !used.has(segment),
+      );
+      if (!next) {
+        break;
+      }
+      used.add(next);
+      end = key(next.a) === key(end) ? next.b : next.a;
+      points.push(end);
+    }
+    paths.push(`M ${points.map(([x, y]) => `${x} ${y}`).join(" L ")} Z`);
+  }
+  return paths.join(" ");
+}
+
+/** Crossing between one boundary edge and one routed edge segment. */
+function segmentCrossing(
+  a1: [number, number],
+  a2: [number, number],
+  b1: [number, number],
+  b2: [number, number],
+): ZoneGap | null {
+  const aVertical = a1[0] === a2[0];
+  const bVertical = b1[0] === b2[0];
+  if (aVertical === bVertical) {
+    return null;
+  }
+  const [verticalA, verticalB, horizontalA, horizontalB] = aVertical
+    ? [a1, a2, b1, b2]
+    : [b1, b2, a1, a2];
+  const x = verticalA[0];
+  const y = horizontalA[1];
+  const withinVertical =
+    y >= Math.min(verticalA[1], verticalB[1]) &&
+    y <= Math.max(verticalA[1], verticalB[1]);
+  const withinHorizontal =
+    x >= Math.min(horizontalA[0], horizontalB[0]) &&
+    x <= Math.max(horizontalA[0], horizontalB[0]);
+  return withinVertical && withinHorizontal ? { x, y } : null;
+}
+
+/** Primary connections cut square bridges through a storyline border. */
+function zoneCrossings(
+  parts: readonly ZonePart[],
+  routes: readonly (readonly Point[])[],
+): ZoneGap[] {
+  const segments = zoneBoundary(parts);
+  const gaps: ZoneGap[] = [];
+  const seen = new Set<string>();
+  for (const route of routes) {
+    for (let index = 0; index < route.length - 1; index += 1) {
+      const from = route[index];
+      const to = route[index + 1];
+      for (const segment of segments) {
+        const gap = segmentCrossing(
+          segment.a,
+          segment.b,
+          [from.x, from.y],
+          [to.x, to.y],
+        );
+        if (!gap) {
+          continue;
+        }
+        const id = `${Math.round(gap.x)},${Math.round(gap.y)}`;
+        if (seen.has(id)) {
+          continue;
+        }
+        seen.add(id);
+        gaps.push(gap);
+      }
+    }
+  }
+  return gaps;
+}
+
 function ZoneNode({ data }: NodeProps<Node<ZoneData, "zone">>) {
+  const maskId = `zone-mask-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const width = Math.max(...data.parts.map((p) => p.x + p.w));
+  const height = Math.max(...data.parts.map((p) => p.y + p.h));
+  const outline = zoneOutlinePath(data.parts);
+  const single = data.parts.length === 1;
+
   return (
-    <div className="zone-node">
-      <span className="zone-label">{data.label}</span>
+    <div className="zone-shape">
+      <svg
+        aria-hidden="true"
+        className="zone-outline"
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <mask
+            id={maskId}
+            maskUnits="userSpaceOnUse"
+            x={0}
+            y={0}
+            width={width}
+            height={height}
+          >
+            <rect width={width} height={height} fill="white" />
+            {data.gaps.map((gap) => (
+              <rect
+                key={`${gap.x},${gap.y}`}
+                x={gap.x - ZONE_BRIDGE_GAP / 2}
+                y={gap.y - ZONE_BRIDGE_GAP / 2}
+                width={ZONE_BRIDGE_GAP}
+                height={ZONE_BRIDGE_GAP}
+                fill="black"
+              />
+            ))}
+          </mask>
+        </defs>
+        {single ? (
+          <>
+            <rect
+              x={0}
+              y={0}
+              width={width}
+              height={height}
+              rx={28}
+              fill="var(--zone-fill)"
+            />
+            <rect
+              x={0}
+              y={0}
+              width={width}
+              height={height}
+              rx={28}
+              fill="none"
+              stroke="var(--zone-border)"
+              strokeWidth={ZONE_STROKE}
+              mask={`url(#${maskId})`}
+            />
+          </>
+        ) : (
+          <>
+            <path d={outline} fill="var(--zone-fill)" />
+            <path
+              d={outline}
+              fill="none"
+              stroke="var(--zone-border)"
+              strokeLinejoin="round"
+              strokeWidth={ZONE_STROKE}
+              mask={`url(#${maskId})`}
+            />
+          </>
+        )}
+      </svg>
     </div>
   );
+}
+
+function ZoneLabelNode({ data }: NodeProps<Node<ZoneLabelData, "zone-label">>) {
+  return <span className="zone-label">{data.label}</span>;
 }
 
 function EraDividerNode() {
@@ -155,6 +401,7 @@ function SiegeBackdropNode() {
 const nodeTypes = {
   work: WorkNode,
   zone: ZoneNode,
+  "zone-label": ZoneLabelNode,
   "era-divider": EraDividerNode,
   "era-backdrop": SiegeBackdropNode,
 };
@@ -386,16 +633,47 @@ function chartNodes(): Node[] {
       zIndex: 0,
     },
   ];
-  const zoneNodes: Node[] = zones.map((zone) => ({
-    id: zone.id,
-    type: "zone",
-    position: { x: zone.x, y: zone.y },
-    data: { label: zone.label },
-    style: { width: zone.w, height: zone.h },
+  const routes = chartRoutes();
+  const primaryRoutes = edges
+    .filter((edge) => edge.connection === "primary")
+    .map((edge) => routes.get(edge.id) ?? []);
+  const zoneNodes: Node[] = zones.map((zone) => {
+    const parts = zone.parts ?? [
+      { x: zone.x, y: zone.y, w: zone.w, h: zone.h },
+    ];
+    return {
+      id: zone.id,
+      type: "zone",
+      position: { x: zone.x, y: zone.y },
+      data: {
+        parts: parts.map((part) => ({
+          x: part.x - zone.x,
+          y: part.y - zone.y,
+          w: part.w,
+          h: part.h,
+        })),
+        gaps: zoneCrossings(parts, primaryRoutes).map((gap) => ({
+          x: gap.x - zone.x,
+          y: gap.y - zone.y,
+        })),
+      } satisfies ZoneData,
+      style: { width: zone.w, height: zone.h },
+      draggable: false,
+      selectable: false,
+      connectable: false,
+      zIndex: 0,
+    };
+  });
+  const zoneLabelNodes: Node[] = zones.map((zone) => ({
+    id: `${zone.id}-label`,
+    type: "zone-label",
+    position: { x: zone.labelX, y: zone.labelY },
+    data: { label: zone.label } satisfies ZoneLabelData,
+    style: { pointerEvents: "none" },
     draggable: false,
     selectable: false,
     connectable: false,
-    zIndex: 0,
+    zIndex: 4,
   }));
   const workNodes: Node[] = works.map((work) => ({
     id: work.id,
@@ -418,7 +696,7 @@ function chartNodes(): Node[] {
     className: "nopan",
     zIndex: work.kind === "shortcut" ? 3 : 2,
   }));
-  return [...eraNodes, ...zoneNodes, ...workNodes];
+  return [...eraNodes, ...zoneNodes, ...workNodes, ...zoneLabelNodes];
 }
 
 function chartEdges(): Edge[] {

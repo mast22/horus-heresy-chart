@@ -83,7 +83,12 @@ describe("routing geometry", () => {
       const target = worksById.get(edge.target);
       const isShortcut =
         source?.kind === "shortcut" || target?.kind === "shortcut";
-      if (!isShortcut) {
+      if (!isShortcut || !source || !target) {
+        return false;
+      }
+      // A badge stacked directly under its work has to leave the right side,
+      // so a bend is unavoidable; a badge on a horizontal line must not bend.
+      if (target.x <= source.x) {
         return false;
       }
       const y = route[0].y;

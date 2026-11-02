@@ -200,6 +200,7 @@ def parse_zones(source: str) -> list[dict[str, Any]]:
             assert match is not None
             zone[name] = int(match.group(1))
             zone[f"{name}_offset"] = base + match.start(1)
+        zone["has_parts"] = "parts:" in text
         zones.append(zone)
     return zones
 
@@ -349,6 +350,10 @@ def build_zone_plan(
 ) -> list[dict[str, Any]]:
     plan: list[dict[str, Any]] = []
     for zone in zones:
+        # Multi-part outlines (such as reversed L storylines) are hand-built;
+        # a rectangular bounding-box rewrite would erase their shape.
+        if zone["has_parts"]:
+            continue
         members = [
             work for work in works if work["zone"] == zone["label"]
         ]

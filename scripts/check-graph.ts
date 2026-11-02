@@ -62,6 +62,9 @@ const workById = new Map(graph.works.map((work) => [work.id, work]));
 const backward = graph.edges.filter((edge) => {
   const source = workById.get(edge.source);
   const target = workById.get(edge.target);
+  if (source?.kind === "shortcut") {
+    return false;
+  }
   return source && target && target.x <= source.x;
 });
 check(
@@ -641,8 +644,8 @@ check(
   `ribbon=${serpentBeneath?.ribbon ?? "missing"}`,
 );
 check(
-  "work count stays 256",
-  graph.works.length === 256,
+  "work count stays 257",
+  graph.works.length === 257,
   `${graph.works.length}`,
 );
 

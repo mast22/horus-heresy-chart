@@ -91,6 +91,9 @@ describe("graph integrity", () => {
     const backward = graph.edges.filter((edge) => {
       const source = workById.get(edge.source);
       const target = workById.get(edge.target);
+      if (source?.kind === "shortcut") {
+        return false;
+      }
       return source && target && target.x <= source.x;
     });
     assert.deepEqual(
@@ -204,6 +207,169 @@ describe("zones and eras", () => {
         .map((work) => work.x + work.w / 2),
     );
     assert.ok(siegeX > heresyX, `siege ${siegeX} heresy ${heresyX}`);
+  });
+
+  it("keeps every work inside its zone with breathing room", () => {
+    const padding = 24;
+    for (const work of graph.works) {
+      if (!work.zone) {
+        continue;
+      }
+      const zone = graph.zones.find((item) => item.label === work.zone);
+      assert.ok(zone, `${work.id} names a missing zone`);
+      const parts = zone.parts ?? [zone];
+      const inside = parts.some(
+        (part) =>
+          work.x >= part.x + padding &&
+          work.y >= part.y + padding &&
+          work.x + work.w <= part.x + part.w - padding &&
+          work.y + work.h <= part.y + part.h - padding,
+      );
+      assert.ok(inside, `${work.title} is not padded inside ${zone.label}`);
+    }
+  });
+
+  it("keeps works from other storylines outside every zone", () => {
+    const padding = 24;
+    for (const zone of graph.zones) {
+      const parts = zone.parts ?? [zone];
+      for (const work of graph.works) {
+        if (work.zone === zone.label) {
+          continue;
+        }
+        for (const part of parts) {
+          const intrudes =
+            work.x < part.x + part.w + padding &&
+            work.x + work.w > part.x - padding &&
+            work.y < part.y + part.h + padding &&
+            work.y + work.h > part.y - padding;
+          assert.equal(
+            intrudes,
+            false,
+            `${work.title} is too close to ${zone.label}`,
+          );
+        }
+      }
+    }
+  });
+
+  it("keeps storylines at least 24px apart", () => {
+    const margin = 24;
+    const partsOf = (zone: (typeof graph.zones)[number]) =>
+      zone.parts ?? [zone];
+    for (let i = 0; i < graph.zones.length; i += 1) {
+      for (let j = i + 1; j < graph.zones.length; j += 1) {
+        const left = graph.zones[i];
+        const right = graph.zones[j];
+        let closest = -Infinity;
+        for (const a of partsOf(left)) {
+          for (const b of partsOf(right)) {
+            const dx = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w));
+            const dy = Math.max(b.y - (a.y + a.h), a.y - (b.y + b.h));
+            closest = Math.max(closest, Math.max(dx, dy));
+          }
+        }
+        assert.ok(
+          closest >= margin,
+          `${left.label} and ${right.label} are ${closest}px apart`,
+        );
+      }
+    }
+  });
+
+  it("draws irregular storylines as one solid block", () => {
+    for (const zone of graph.zones) {
+      if (!zone.parts || zone.parts.length < 2) {
+        continue;
+      }
+      const seen = new Set<number>([0]);
+      const queue = [0];
+      while (queue.length > 0) {
+        const index = queue.shift() as number;
+        const a = zone.parts[index];
+        zone.parts.forEach((b, other) => {
+          if (seen.has(other)) {
+            return;
+          }
+          const overlaps =
+            a.x < b.x + b.w &&
+            a.x + a.w > b.x &&
+            a.y < b.y + b.h &&
+            a.y + a.h > b.y;
+          if (overlaps) {
+            seen.add(other);
+            queue.push(other);
+          }
+        });
+      }
+      assert.equal(
+        seen.size,
+        zone.parts.length,
+        `${zone.label} has disconnected parts`,
+      );
+    }
+  });
+
+  it("keeps zone labels clear of every work", () => {
+    for (const zone of graph.zones) {
+      const width = Math.ceil(zone.label.length * 22 * 0.72 + 16);
+      const label = {
+        x: zone.labelX,
+        y: zone.labelY,
+        w: width,
+        h: 34,
+      };
+      for (const work of graph.works) {
+        const overlaps =
+          work.x < label.x + label.w &&
+          work.x + work.w > label.x &&
+          work.y < label.y + label.h &&
+          work.y + work.h > label.y;
+        assert.equal(
+          overlaps,
+          false,
+          `${zone.label} label is covered by ${work.title}`,
+        );
+      }
+    }
+  });
+
+  it("declares the two expanded storylines' works", () => {
+    const expected: Record<string, string[]> = {
+      "Caliban's Rebellion": [
+        "master-of-the-first",
+        "guardian-of-order",
+        "descent-of-angels",
+        "call-of-the-lion",
+        "fallen-angels",
+      ],
+      "Imperium Secundus": [
+        "virtues-of-the-sons",
+        "sins-of-the-father-ther",
+        "herald-of-sanguinius",
+        "a-safe-and-shadowe-shadowed-place",
+        "the-heart-of-the-pharos",
+        "the-laurel-of-defiance",
+        "pharos",
+        "the-unremembered-empire",
+        "red-marked",
+        "stratagem",
+      ],
+    };
+    for (const [label, ids] of Object.entries(expected)) {
+      const members = new Set(
+        graph.works
+          .filter((work) => work.zone === label)
+          .map((work) => work.id),
+      );
+      for (const id of ids) {
+        assert.ok(members.has(id), `${id} is missing from ${label}`);
+      }
+    }
+    const imperium = graph.zones.find(
+      (zone) => zone.label === "Imperium Secundus",
+    );
+    assert.ok(imperium?.parts && imperium.parts.length > 1, "not L-shaped");
   });
 
   it("keeps every shortcut anchored to a full-size work", () => {
@@ -488,6 +654,9 @@ describe("known connections", () => {
       ["deathfire", "sons-of-the-forge", "primary"],
       ["betrayer", "heart-of-the-conqueror", "primary"],
       ["betrayer", "the-revelation-of-theword", "primary"],
+      ["prince-of-crows", "a-safe-and-shadowe-shadowed-place", "tertiary"],
+      ["champion-of-oaths", "templar", "secondary"],
+      ["the-long-night", "pharos", "secondary"],
     ] as const;
     for (const [source, target, connection] of corrected) {
       assert.ok(
@@ -495,6 +664,16 @@ describe("known connections", () => {
         `${source} ${connection} -> ${target}`,
       );
     }
+  });
+
+  it("keeps The Long Night outbound to one secondary", () => {
+    const outbound = graph.edges.filter(
+      (edge) => edge.source === "the-long-night",
+    );
+    assert.deepEqual(
+      outbound.map((edge) => [edge.target, edge.connection]),
+      [["pharos", "secondary"]],
+    );
   });
 
   it("does not restore removed connections", () => {
@@ -505,6 +684,9 @@ describe("known connections", () => {
       ["the-laurel-of-defiance", "the-heart-of-the-pharos"],
       ["a-rose-watered-with-blood", "perpetual"],
       ["distant-echoes-of-old-night", "child-of-chaos"],
+      ["the-long-night", "the-unremembered-empire"],
+      ["the-long-night", "the-honoured"],
+      ["fear-to-tread", "hubris-of-monarchia"],
     ] as const;
     for (const [source, target] of removed) {
       assert.equal(
