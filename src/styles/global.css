@@ -1167,26 +1167,34 @@ header nav a[aria-current="page"] {
     max-block-size: min(60dvh, 24rem);
   }
 
+  .chart-stage {
+    flex-direction: column;
+  }
+
   .work-sidebar {
     --sheet-pad-start: max(1rem, env(safe-area-inset-left));
     --sheet-pad-end: max(1rem, env(safe-area-inset-right));
-    position: fixed;
-    inset: auto 0 0 0;
-    z-index: 20;
-    flex: none;
+    position: static;
+    z-index: 1;
+    flex: 0 0 0;
     inline-size: 100%;
-    block-size: 25dvh;
+    block-size: 0;
     max-block-size: 25dvh;
     border-inline-start: none;
-    border-block-start: 1px solid var(--line);
-    transform: translateY(100%);
-    transition: transform 240ms ease;
+    border-block-start: 1px solid transparent;
+    transform: none;
+    transition:
+      flex-basis 240ms ease,
+      border-color 240ms ease;
   }
 
   .work-sidebar.is-open {
-    flex-basis: auto;
+    flex-basis: 25dvh;
     inline-size: 100%;
-    transform: translateY(0);
+    block-size: 25dvh;
+    max-block-size: 25dvh;
+    border-block-start-color: var(--line);
+    transform: none;
   }
 
   .work-sidebar-panel {

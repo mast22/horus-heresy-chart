@@ -22,6 +22,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -779,6 +780,7 @@ function ChartCanvas({
   focusKey,
   frame,
   frameRoot,
+  detailOpen,
   onFramed,
   onWorkClick,
   onOpenLegend,
@@ -790,6 +792,7 @@ function ChartCanvas({
   focusKey: number;
   frame: FrameRequest;
   frameRoot: RefObject<HTMLDivElement | null>;
+  detailOpen: boolean;
   onFramed: () => void;
   onWorkClick: (id: string) => void;
   onOpenLegend: (source: HTMLElement | null) => void;
@@ -799,7 +802,7 @@ function ChartCanvas({
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const interactive = chartControlConfig.interactionEnabled;
   const colorMode = useColorMode();
-  const { fitView, setViewport } = useReactFlow();
+  const { fitView, getViewport, setViewport } = useReactFlow();
   const store = useStoreApi();
   const onFramedRef = useRef(onFramed);
   onFramedRef.current = onFramed;
@@ -891,6 +894,28 @@ function ChartCanvas({
       cancelled = true;
     };
   }, [fitView, frame, frameRoot, setViewport, store]);
+
+  useLayoutEffect(() => {
+    const pane = frameRoot.current;
+    if (!pane) {
+      return;
+    }
+    const before = pane.getBoundingClientRect();
+    const viewport = getViewport();
+    const timer = window.setTimeout(() => {
+      const after = pane.getBoundingClientRect();
+      if (after.height >= before.height - 1 || before.height < 2) {
+        return;
+      }
+      const scale = after.height / before.height;
+      void setViewport({
+        x: viewport.x * scale,
+        y: viewport.y * scale,
+        zoom: viewport.zoom * scale,
+      });
+    }, 260);
+    return () => window.clearTimeout(timer);
+  }, [detailOpen, frameRoot, getViewport, setViewport]);
 
   return (
     <ReactFlow
@@ -1142,6 +1167,7 @@ export default function FlowChart() {
               focusKey={focusKey}
               frame={frame}
               frameRoot={flowRootRef}
+              detailOpen={sidebar.open}
               onFramed={() => setChartReady(true)}
               onWorkClick={handleWorkClick}
               onOpenLegend={openLegendFrom}
