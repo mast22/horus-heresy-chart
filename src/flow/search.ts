@@ -2,6 +2,7 @@
 
 import { works } from "./chart.ts";
 import { FACTION_COLORS, factionsFor } from "./legions.ts";
+import { detailPublication } from "./publication.ts";
 import { workDetails } from "./work-details.ts";
 
 export type SearchResult = {
@@ -32,7 +33,7 @@ const workResults: SearchResult[] = nonShortcutWorks
       key: `work:${work.id}`,
       kind: "work",
       label: work.title,
-      meta: work.publication,
+      meta: detailPublication(work.publication),
       nodeIds: [work.id],
     }),
   )

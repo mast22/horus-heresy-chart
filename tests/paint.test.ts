@@ -91,6 +91,17 @@ describe("work face paint", () => {
     });
   }
 
+  it("leaves the release number off a novel and keeps a collection mark on a story", () => {
+    const novel = paint(findWork(/^horus rising$/i));
+    assert.equal(novel.includes("work-pub"), false);
+    assert.equal(novel.includes("Book 1"), false);
+    const story = paint(findWork(/^the last church$/i));
+    assert.match(story, /class="work-pub"[^>]*>in Book 10</);
+    assert.equal(story.includes("→"), false);
+    const audio = paint(findWork(/^nightfane$/i));
+    assert.match(audio, /class="work-pub"[^>]*>Audio</);
+  });
+
   it("uses different ink on Ordo Sinister's two bands", () => {
     const bands = readBands(paint(findWork(/ordo sinister/i)));
     assert.equal(bands.length, 2);

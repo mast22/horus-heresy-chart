@@ -12,10 +12,14 @@ import {
   ReactFlowProvider,
   useNodesState,
   useReactFlow,
+  useStoreApi,
 } from "@xyflow/react";
 import {
   type CSSProperties,
+  type RefObject,
+  useCallback,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -37,6 +41,7 @@ import {
 } from "../flow/chart";
 import { nextWorkIds } from "../flow/navigation";
 import { CONNECTION_ORDER, computePorts, type PortSlot } from "../flow/ports";
+import { detailPublication } from "../flow/publication";
 import { type Point, routeWorkEdge } from "../flow/routing";
 import { SearchBox } from "./SearchBox";
 import { displayTitle, WorkFace } from "./WorkFace";
@@ -50,10 +55,31 @@ import {
   closedSidebar,
   closeLegend,
   initialLegend,
+  markOpeningSeen,
+  OPENING_FRAME_RESERVE,
+  openingBoxes,
+  openingViewport,
   openLegend,
+  readOpeningSeen,
   SIDEBAR_WIDTH_FRACTION,
   toggleWorkSidebar,
 } from "../site/ui-state";
+
+type FrameRequest = {
+  mode: "pending" | "opening" | "poster";
+  token: number;
+  animate: boolean;
+};
+
+const openingFrameBoxes = openingBoxes(buildChartGraph().works);
+
+function browserStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
 
 type Port = {
   id: string;
@@ -462,33 +488,34 @@ function useColorMode(): Theme {
   );
 }
 
-function FitViewOnMount() {
-  const { fitView } = useReactFlow();
-
-  useEffect(() => {
-    void fitView({ duration: 0, padding: 0.04 });
-  }, [fitView]);
-
-  return null;
-}
-
 function ChartCanvas({
   pulseIds,
   focusIds,
   focusKey,
+  frame,
+  frameRoot,
+  onFramed,
   onWorkClick,
   onOpenLegend,
+  onStart,
 }: {
   pulseIds: ReadonlySet<string>;
   focusIds: readonly string[];
   focusKey: number;
+  frame: FrameRequest;
+  frameRoot: RefObject<HTMLDivElement | null>;
+  onFramed: () => void;
   onWorkClick: (id: string) => void;
-  onOpenLegend: () => void;
+  onOpenLegend: (source: HTMLElement | null) => void;
+  onStart: () => void;
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const interactive = chartControlConfig.interactionEnabled;
   const colorMode = useColorMode();
-  const { fitView } = useReactFlow();
+  const { fitView, setViewport } = useReactFlow();
+  const store = useStoreApi();
+  const onFramedRef = useRef(onFramed);
+  onFramedRef.current = onFramed;
 
   useEffect(() => {
     setNodes((current) =>
@@ -511,6 +538,59 @@ function ChartCanvas({
     });
   }, [fitView, focusIds, focusKey]);
 
+  useEffect(() => {
+    if (frame.mode === "pending") {
+      return;
+    }
+    let cancelled = false;
+
+    async function apply(attempt: number) {
+      if (cancelled) {
+        return;
+      }
+      if (attempt > 90) {
+        onFramedRef.current();
+        return;
+      }
+      const pane = frameRoot.current;
+      const width = pane?.clientWidth ?? 0;
+      const height = pane?.clientHeight ?? 0;
+      if (width < 2 || height < 2 || !store.getState().panZoom) {
+        window.requestAnimationFrame(() => {
+          void apply(attempt + 1);
+        });
+        return;
+      }
+      const duration = frame.animate ? 480 : 0;
+      if (frame.mode === "poster") {
+        await fitView({ duration, padding: 0.04 });
+      } else {
+        const viewport = openingViewport(
+          openingFrameBoxes,
+          { width, height },
+          OPENING_FRAME_RESERVE,
+        );
+        const placed = viewport
+          ? await setViewport(viewport, { duration })
+          : false;
+        if (!placed && !cancelled) {
+          window.requestAnimationFrame(() => {
+            void apply(attempt + 1);
+          });
+          return;
+        }
+      }
+      if (!cancelled) {
+        onFramedRef.current();
+      }
+    }
+
+    void apply(0);
+    return () => {
+      cancelled = true;
+    };
+  }, [fitView, frame, frameRoot, setViewport, store]);
+
   return (
     <ReactFlow
       nodes={nodes}
@@ -518,8 +598,6 @@ function ChartCanvas({
       defaultEdges={initialEdges}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
-      fitView
-      fitViewOptions={{ padding: 0.04, duration: 0 }}
       translateExtent={TRANSLATE_EXTENT}
       minZoom={0.02}
       maxZoom={1.5}
@@ -538,17 +616,78 @@ function ChartCanvas({
         }
       }}
     >
-      <FitViewOnMount />
       <Controls
         showInteractive={chartControlConfig.showInteractivityToggle}
         orientation="vertical"
       >
-        <button type="button" className="legend-button" onClick={onOpenLegend}>
+        <button
+          type="button"
+          className="start-button"
+          aria-label="Start at Horus Rising"
+          onClick={onStart}
+        >
+          Start
+        </button>
+        <button
+          type="button"
+          className="legend-button"
+          onClick={(event) => onOpenLegend(event.currentTarget)}
+        >
           Legend
         </button>
       </Controls>
       <Background />
     </ReactFlow>
+  );
+}
+
+function OpeningCard({
+  onDismiss,
+  onOpenLegend,
+}: {
+  onDismiss: () => void;
+  onOpenLegend: (source: HTMLElement | null) => void;
+}) {
+  const cardRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    cardRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  return (
+    <aside
+      className="opening-card"
+      aria-labelledby="opening-title"
+      ref={cardRef}
+      tabIndex={-1}
+    >
+      <div className="opening-card-inner">
+        <div className="opening-lead">
+          <h2 id="opening-title" className="opening-title">
+            Start at Horus Rising
+          </h2>
+          <p className="opening-copy">
+            Read left to right. Follow the arrow out of a book before you open
+            the book it points to.
+          </p>
+        </div>
+        <div className="opening-actions">
+          <button type="button" className="opening-read" onClick={onDismiss}>
+            Read the chart
+          </button>
+          <button
+            type="button"
+            className="opening-legend"
+            onClick={(event) => onOpenLegend(event.currentTarget)}
+          >
+            Legend
+          </button>
+          <a className="opening-guide" href="/how-to-use-this-chart">
+            How to use this chart
+          </a>
+        </div>
+      </div>
+    </aside>
   );
 }
 
@@ -558,6 +697,76 @@ export default function FlowChart() {
   const [pulseIds, setPulseIds] = useState<ReadonlySet<string>>(new Set());
   const [focusIds, setFocusIds] = useState<readonly string[]>([]);
   const [focusKey, setFocusKey] = useState(0);
+  const [seen, setSeen] = useState<boolean | null>(null);
+  const [chartReady, setChartReady] = useState(false);
+  const [frame, setFrame] = useState<FrameRequest>({
+    mode: "pending",
+    token: 0,
+    animate: false,
+  });
+  const flowRootRef = useRef<HTMLDivElement>(null);
+  const legendOpener = useRef<HTMLElement | null>(null);
+  const legendWasOpen = useRef(false);
+
+  const dismissOpening = useCallback(() => {
+    markOpeningSeen(browserStorage());
+    setSeen(true);
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLButtonElement>(".start-button")?.focus();
+    });
+  }, []);
+
+  function openLegendFrom(source: HTMLElement | null) {
+    legendOpener.current = source;
+    setLegend(openLegend());
+  }
+
+  useEffect(() => {
+    const already = readOpeningSeen(browserStorage());
+    setSeen(already);
+    setFrame({
+      mode: already ? "poster" : "opening",
+      token: 1,
+      animate: false,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!legend.open) {
+      if (legendWasOpen.current) {
+        legendOpener.current?.focus();
+      }
+      legendWasOpen.current = false;
+      return;
+    }
+    legendWasOpen.current = true;
+    document.querySelector<HTMLButtonElement>(".legend-close")?.focus();
+  }, [legend.open]);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+      if (legend.open) {
+        setLegend(closeLegend());
+        return;
+      }
+      if (seen !== false) {
+        return;
+      }
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(".chart-search, header")
+      ) {
+        return;
+      }
+      dismissOpening();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [dismissOpening, legend.open, seen]);
 
   function handleWorkClick(workId: string) {
     const work = worksById.get(workId);
@@ -579,76 +788,100 @@ export default function FlowChart() {
   return (
     <div
       className="chart-shell"
+      data-opening={seen === false ? "true" : "false"}
       style={
         {
           "--work-sidebar-width": `${SIDEBAR_WIDTH_FRACTION * 100}vw`,
         } as CSSProperties
       }
     >
-      <div className="flow-root">
-        <ReactFlowProvider>
-          <ChartCanvas
-            pulseIds={pulseIds}
-            focusIds={focusIds}
-            focusKey={focusKey}
-            onWorkClick={handleWorkClick}
-            onOpenLegend={() => setLegend(openLegend())}
-          />
-        </ReactFlowProvider>
-        <SearchBox onSelect={handleSearchSelect} />
-      </div>
-      <aside
-        className={sidebar.open ? "work-sidebar is-open" : "work-sidebar"}
-        aria-hidden={sidebar.open ? undefined : true}
-        data-entrance={sidebar.entrance}
-        data-width-fraction={sidebar.widthFraction}
-        data-open={sidebar.open ? "true" : "false"}
-      >
-        <div className="work-sidebar-panel">
-          {sidebar.open ? (
-            <>
-              <div className="sidebar-top">
-                <button
-                  type="button"
-                  className="sidebar-close"
-                  onClick={() => setSidebar(closedSidebar())}
-                >
-                  Close
-                </button>
-              </div>
-              <h2 className="sidebar-book">{displayTitle(sidebar.bookName)}</h2>
-              {sidebar.publication ? (
-                <p className="sidebar-meta">{sidebar.publication}</p>
-              ) : null}
-              {sidebar.description ? (
-                <p className="sidebar-description">{sidebar.description}</p>
-              ) : null}
-              <dl className="sidebar-facts">
-                <dt>Author</dt>
-                <dd>{sidebar.author || "Unknown"}</dd>
-                <dt>Released</dt>
-                <dd>{sidebar.year ?? "Unknown"}</dd>
-                <dt>Length</dt>
-                <dd>{sidebar.length || "Unknown"}</dd>
-                <dt>Legion / Faction</dt>
-                <dd className="sidebar-factions">
-                  {sidebar.factions.length > 0
-                    ? sidebar.factions.map((faction) => (
-                        <span className="faction-chip" key={faction.name}>
-                          <span
-                            className="faction-swatch"
-                            style={{ backgroundColor: faction.color }}
-                          />
-                          {faction.name}
-                        </span>
-                      ))
-                    : "Unknown"}
-                </dd>
-              </dl>
-            </>
-          ) : null}
+      <div className="chart-stage">
+        <div
+          className="flow-root"
+          data-framed={chartReady ? "true" : "false"}
+          ref={flowRootRef}
+        >
+          <ReactFlowProvider>
+            <ChartCanvas
+              pulseIds={pulseIds}
+              focusIds={focusIds}
+              focusKey={focusKey}
+              frame={frame}
+              frameRoot={flowRootRef}
+              onFramed={() => setChartReady(true)}
+              onWorkClick={handleWorkClick}
+              onOpenLegend={openLegendFrom}
+              onStart={() =>
+                setFrame((current) => ({
+                  mode: "opening",
+                  token: current.token + 1,
+                  animate: true,
+                }))
+              }
+            />
+          </ReactFlowProvider>
+          <SearchBox onSelect={handleSearchSelect} />
         </div>
-      </aside>
+        <aside
+          className={sidebar.open ? "work-sidebar is-open" : "work-sidebar"}
+          aria-hidden={sidebar.open ? undefined : true}
+          data-entrance={sidebar.entrance}
+          data-width-fraction={sidebar.widthFraction}
+          data-open={sidebar.open ? "true" : "false"}
+        >
+          <div className="work-sidebar-panel">
+            {sidebar.open ? (
+              <>
+                <div className="sidebar-top">
+                  <button
+                    type="button"
+                    className="sidebar-close"
+                    onClick={() => setSidebar(closedSidebar())}
+                  >
+                    Close
+                  </button>
+                </div>
+                <h2 className="sidebar-book">
+                  {displayTitle(sidebar.bookName)}
+                </h2>
+                {sidebar.publication ? (
+                  <p className="sidebar-meta">
+                    {detailPublication(sidebar.publication)}
+                  </p>
+                ) : null}
+                {sidebar.description ? (
+                  <p className="sidebar-description">{sidebar.description}</p>
+                ) : null}
+                <dl className="sidebar-facts">
+                  <dt>Author</dt>
+                  <dd>{sidebar.author || "Unknown"}</dd>
+                  <dt>Released</dt>
+                  <dd>{sidebar.year ?? "Unknown"}</dd>
+                  <dt>Length</dt>
+                  <dd>{sidebar.length || "Unknown"}</dd>
+                  <dt>Legion / Faction</dt>
+                  <dd className="sidebar-factions">
+                    {sidebar.factions.length > 0
+                      ? sidebar.factions.map((faction) => (
+                          <span className="faction-chip" key={faction.name}>
+                            <span
+                              className="faction-swatch"
+                              style={{ backgroundColor: faction.color }}
+                            />
+                            {faction.name}
+                          </span>
+                        ))
+                      : "Unknown"}
+                  </dd>
+                </dl>
+              </>
+            ) : null}
+          </div>
+        </aside>
+      </div>
+      {seen === false ? (
+        <OpeningCard onDismiss={dismissOpening} onOpenLegend={openLegendFrom} />
+      ) : null}
       {legend.open
         ? createPortal(
             <div
@@ -658,7 +891,15 @@ export default function FlowChart() {
               aria-label="Legend"
             >
               <div className="legend-dialog">
-                <div className="legend-body">{legend.body}</div>
+                <div className="legend-body">
+                  <img
+                    className="legend-image"
+                    src="/legend.png"
+                    width={1026}
+                    height={1120}
+                    alt="Legend of the chart. It shows novel and short story marks, primary, secondary, and tertiary connections, ribbons, faction storylines, shortcut badges, and conflict zones."
+                  />
+                </div>
                 <button
                   type="button"
                   className="legend-close"

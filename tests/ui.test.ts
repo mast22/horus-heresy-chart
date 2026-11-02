@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import { buildChartGraph, type ChartWork } from "../src/flow/chart.ts";
 import { FACTION_COLORS, factionsFor } from "../src/flow/legions.ts";
 import { nextWorkIds } from "../src/flow/navigation.ts";
+import { detailPublication, nodePublication } from "../src/flow/publication.ts";
 import { search } from "../src/flow/search.ts";
 import { selectionFor } from "../src/flow/selection.ts";
 import { workDetails } from "../src/flow/work-details.ts";
@@ -15,7 +16,14 @@ import {
   closedSidebar,
   closeLegend,
   initialLegend,
+  markOpeningSeen,
+  OPENING_MIN_ZOOM,
+  OPENING_STORAGE_KEY,
+  OPENING_WORK_IDS,
+  openingBoxes,
+  openingViewport,
   openLegend,
+  readOpeningSeen,
   SIDEBAR_ENTRANCE,
   SIDEBAR_WIDTH_FRACTION,
   toggleWorkSidebar,
@@ -380,6 +388,12 @@ describe("chart chrome", () => {
     assert.match(flowSource, /Legend\s*<\/button>/);
     assert.match(flowSource, /Close\s*<\/button>/);
     assert.ok(flowSource.includes('className="legend-body"'));
+    assert.ok(flowSource.includes('className="legend-image"'));
+    assert.ok(flowSource.includes('src="/legend.png"'));
+    assert.equal(
+      existsSync(new URL("../public/legend.png", import.meta.url)),
+      true,
+    );
     assert.ok(flowSource.includes("sidebar.bookName"));
     assert.ok(flowSource.includes("sidebar.author"));
     assert.ok(flowSource.includes("sidebar.year"));
@@ -399,6 +413,7 @@ describe("chart chrome", () => {
     assert.ok(css.includes(".faction-chip"));
     assert.ok(css.includes(".legend-button"));
     assert.ok(css.includes(".legend-body"));
+    assert.ok(css.includes(".legend-image"));
   });
 
   it("uses the device theme and a header toggle", () => {
@@ -417,6 +432,85 @@ describe("chart chrome", () => {
     assert.ok(css.includes(".theme-toggle"));
     assert.ok(flowSource.includes("useSyncExternalStore"));
     assert.ok(flowSource.includes("colorMode={colorMode}"));
+  });
+
+  it("frames the opening on Horus Rising, left to right", () => {
+    const chain = [
+      ["horus-rising", "false-gods"],
+      ["false-gods", "galaxy-in-flames"],
+      ["galaxy-in-flames", "the-flight-of-the-eisenstein"],
+    ] as const;
+    for (const [source, target] of chain) {
+      assert.ok(
+        graph.edges.some(
+          (edge) =>
+            edge.source === source &&
+            edge.target === target &&
+            edge.connection === "primary",
+        ),
+        `${source} → ${target}`,
+      );
+    }
+    const boxes = openingBoxes(graph.works);
+    assert.equal(boxes.length, OPENING_WORK_IDS.length);
+    for (let index = 1; index < boxes.length; index += 1) {
+      const previous = boxes[index - 1];
+      const current = boxes[index];
+      assert.ok(previous && current && current.x > previous.x);
+    }
+    const wide = openingViewport(boxes, { width: 1440, height: 800 });
+    const narrow = openingViewport(boxes, { width: 390, height: 700 });
+    assert.ok(wide);
+    assert.ok(narrow);
+    const screenLeft = (
+      box: (typeof boxes)[number],
+      viewport: { x: number; zoom: number },
+    ) => viewport.x + box.x * viewport.zoom;
+    const screenRight = (
+      box: (typeof boxes)[number],
+      viewport: { x: number; zoom: number },
+    ) => viewport.x + (box.x + box.w) * viewport.zoom;
+    const first = boxes[0];
+    const second = boxes[1];
+    const last = boxes[boxes.length - 1];
+    assert.ok(first && second && last);
+    assert.ok(screenLeft(first, wide) >= 16);
+    assert.ok(screenLeft(first, wide) < 80);
+    assert.ok(screenLeft(second, wide) > screenRight(first, wide) - 1);
+    assert.ok(screenRight(last, wide) <= 1440);
+    assert.ok(wide.zoom > 0.9);
+    assert.equal(narrow.zoom, OPENING_MIN_ZOOM);
+    assert.ok(screenLeft(first, narrow) < 80);
+    assert.ok(screenRight(first, narrow) <= 390);
+    assert.ok(screenRight(last, narrow) > 390);
+    assert.equal(openingViewport([], { width: 800, height: 600 }), null);
+
+    const storage = new Map<string, string>();
+    const memory = {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+    };
+    assert.equal(readOpeningSeen(memory), false);
+    assert.equal(readOpeningSeen(null), false);
+    markOpeningSeen(memory);
+    assert.equal(storage.get(OPENING_STORAGE_KEY), "seen");
+    assert.equal(readOpeningSeen(memory), true);
+    markOpeningSeen(null);
+
+    const flowSource = read("src/components/FlowChart.tsx");
+    const css = read("src/styles/global.css");
+    assert.ok(flowSource.includes("Start at Horus Rising"));
+    assert.ok(flowSource.includes("Read left to right."));
+    assert.equal(flowSource.includes("The number on a book"), false);
+    assert.ok(flowSource.includes("Read the chart"));
+    assert.ok(flowSource.includes('href="/how-to-use-this-chart"'));
+    assert.ok(flowSource.includes('className="start-button"'));
+    assert.ok(flowSource.includes('className="opening-card"'));
+    assert.ok(css.includes(".opening-card"));
+    assert.ok(css.includes(".start-button"));
+    assert.ok(css.includes(".chart-stage"));
   });
 
   it("centers selected search results", () => {
@@ -443,6 +537,50 @@ describe("chart chrome", () => {
     assert.ok(css.includes("@keyframes work-pulse"));
     assert.ok(css.includes(".sidebar-description"));
     assert.ok(css.includes(".sidebar-top"));
+  });
+});
+
+describe("publication labels", () => {
+  it("keeps release numbers off the node and names them in the details", () => {
+    for (const work of graph.works) {
+      if (work.kind === "shortcut") {
+        continue;
+      }
+      const node = nodePublication(work.publication);
+      const detail = detailPublication(work.publication);
+      const release = /^Book (\d+)$/.exec(work.publication);
+      const siege = /^Terra Book (\d+)$/.exec(work.publication);
+      const collected = /^→ Book (\d+)$/.exec(work.publication);
+      if (release) {
+        assert.equal(node, null, work.id);
+        assert.equal(detail, `Published as Book ${release[1]}`, work.id);
+      } else if (siege) {
+        assert.equal(node, null, work.id);
+        assert.equal(
+          detail,
+          `Published as Siege of Terra, Book ${siege[1]}`,
+          work.id,
+        );
+      } else if (collected) {
+        assert.equal(node, `in Book ${collected[1]}`, work.id);
+        assert.equal(detail, `Collected in Book ${collected[1]}`, work.id);
+        assert.equal(node?.includes("→"), false);
+      } else {
+        assert.equal(node, work.publication, work.id);
+        assert.equal(detail, work.publication, work.id);
+      }
+    }
+  });
+
+  it("still finds a release number from search", () => {
+    const horus = search("horus rising").find(
+      (result) => result.kind === "work",
+    );
+    assert.equal(horus?.meta, "Published as Book 1");
+    const byNumber = search("book 1").filter(
+      (result) => result.kind === "work",
+    );
+    assert.ok(byNumber.some((result) => result.label === "HORUS RISING"));
   });
 });
 

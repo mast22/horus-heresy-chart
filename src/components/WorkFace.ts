@@ -1,6 +1,7 @@
 import { createElement, type ReactNode } from "react";
 
 import type { WorkKind } from "../flow/chart";
+import { nodePublication } from "../flow/publication.ts";
 
 const MINOR_WORDS = new Set(["of", "the", "a", "and", "to", "in", "for"]);
 
@@ -61,6 +62,7 @@ export function WorkFace({
   const colors = data.color;
   const shape = workShape(data.kind);
   const shortcut = data.kind === "shortcut";
+  const publication = shortcut ? null : nodePublication(data.publication);
   const count = colors.length;
   const bands = colors.map((color, index) =>
     createElement(
@@ -90,9 +92,9 @@ export function WorkFace({
               { className: "work-title" },
               displayTitle(data.title),
             ),
-        shortcut
-          ? null
-          : createElement("span", { className: "work-pub" }, data.publication),
+        publication
+          ? createElement("span", { className: "work-pub" }, publication)
+          : null,
       ),
     ),
   );
