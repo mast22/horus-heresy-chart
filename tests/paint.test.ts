@@ -1,10 +1,17 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { inkFor, WorkFace } from "../src/components/WorkFace.ts";
+import { WorkFace } from "../src/components/WorkFace.ts";
 import { buildChartGraph, type ChartWork } from "../src/flow/chart.ts";
+
+const css = readFileSync(
+  fileURLToPath(new URL("../src/styles/global.css", import.meta.url)),
+  "utf8",
+);
 
 const graph = buildChartGraph();
 
@@ -30,17 +37,18 @@ function paint(work: ChartWork): string {
   );
 }
 
-function readBands(html: string): Array<{ color: string; ink: string }> {
-  const bands: Array<{ color: string; ink: string }> = [];
+function readBands(html: string): string[] {
+  const bands: string[] = [];
   const pattern =
-    /class="work-band"[^>]*data-band="(\d+)"[^>]*data-color="(#[0-9a-fA-F]{6})"[^>]*data-ink="(#[0-9a-fA-F]{6})"/g;
+    /class="work-band"[^>]*data-band="(\d+)"[^>]*data-color="(#[0-9a-fA-F]{6})"/g;
   for (const match of html.matchAll(pattern)) {
-    bands.push({
-      color: match[2].toLowerCase(),
-      ink: match[3].toLowerCase(),
-    });
+    bands.push(match[2].toLowerCase());
   }
   return bands;
+}
+
+function namePlates(html: string): number {
+  return html.match(/class="work-name"/g)?.length ?? 0;
 }
 
 const cases: Array<{
@@ -67,7 +75,7 @@ const cases: Array<{
 
 describe("work face paint", () => {
   for (const item of cases) {
-    it(`paints ${item.label} as ${item.count} band(s) with matching ink`, () => {
+    it(`paints ${item.label} as ${item.count} band(s) under one name plate`, () => {
       const work = findWork(item.title);
       const html = paint(work);
       const bands = readBands(html);
@@ -75,25 +83,47 @@ describe("work face paint", () => {
       const colorsMatch =
         bands.length === work.color.length &&
         bands.every(
-          (band, index) => band.color === work.color[index].toLowerCase(),
+          (color, index) => color === work.color[index].toLowerCase(),
         );
-      const inksMatch = bands.every((band) => band.ink === inkFor(band.color));
       const flat =
-        bands.length > 1 &&
-        bands.every((band) => band.color === bands[0].color);
+        bands.length > 1 && bands.every((color) => color === bands[0]);
 
       assert.equal(bands.length, item.count, "band count");
       assert.equal(work.color.length, item.count, "stored color count");
       assert.ok(colorsMatch, "rendered colors match the chart");
-      assert.ok(inksMatch, "each band uses the ink for its fill");
+      assert.equal(namePlates(html), 1, "one name plate");
+      assert.equal(
+        html.match(/class="work-title"/g)?.length ?? 0,
+        1,
+        "title is painted once",
+      );
       assert.equal(shape, item.shape, "shape");
       assert.equal(flat, false, "bands are not one flat color");
     });
   }
 
-  it("uses different ink on Ordo Sinister's two bands", () => {
-    const bands = readBands(paint(findWork(/ordo sinister/i)));
-    assert.equal(bands.length, 2);
-    assert.notEqual(bands[0].ink, bands[1].ink);
+  it("paints Pharos once on a plate over two legion bands", () => {
+    const html = paint(findWork(/^pharos$/i));
+    const bands = readBands(html);
+    assert.deepEqual(bands, ["#0d407f", "#a1aefe"]);
+    assert.equal(namePlates(html), 1);
+    assert.equal(html.match(/class="work-title"/g)?.length, 1);
+    assert.match(html, /class="work-title">Pharos</);
+    assert.equal(html.includes("data-ink"), false);
+  });
+
+  it("gives every name the same plate color", () => {
+    const node = css.match(/\.work-node \{[^}]*\}/)?.[0] ?? "";
+    const plate = css.match(/\.work-name \{[^}]*\}/)?.[0] ?? "";
+    assert.match(node, /--name-bg:\s*#161616/);
+    assert.match(node, /--name-ink:\s*#f6f1e6/);
+    assert.match(plate, /background:\s*var\(--name-bg\)/);
+    assert.match(plate, /color:\s*var\(--name-ink\)/);
+    assert.equal(css.includes("--name-ink:"), true);
+    assert.equal(
+      css.match(/--name-ink:/g)?.length,
+      1,
+      "name ink is declared once",
+    );
   });
 });
