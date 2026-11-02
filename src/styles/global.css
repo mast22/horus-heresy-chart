@@ -523,6 +523,28 @@ header nav a[aria-current="page"] {
   opacity: 0;
 }
 
+.react-flow__nodes {
+  z-index: 2;
+}
+
+.react-flow__viewport-portal,
+.shortcut-anchors {
+  pointer-events: none;
+}
+
+.shortcut-anchors {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  overflow: visible;
+}
+
+.shortcut-anchor line {
+  stroke: var(--node-border);
+  stroke-width: 2;
+}
+
 .work-node {
   position: relative;
   box-sizing: border-box;
