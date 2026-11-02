@@ -11,8 +11,18 @@
  */
 
 import { buildChartGraph, type ChartEdge, type ChartWork } from "./chart.ts";
-import { computePorts, type Ports, portFraction } from "./ports.ts";
-import { type Point, routeThroughLane, routeWorkEdge } from "./routing.ts";
+import {
+  CONNECTION_ORDER,
+  computePorts,
+  type Ports,
+  portFraction,
+} from "./ports.ts";
+import {
+  minRunFor,
+  type Point,
+  routeThroughLane,
+  routeWorkEdge,
+} from "./routing.ts";
 
 /** Total width of the break in the lower line at a bridge. */
 export const BRIDGE_GAP = 18;
@@ -142,10 +152,12 @@ function buildRoutes(): Map<string, Point[]> {
 
   // First merge the links that leave one box, then the links that feed one box.
   // The target pass wins when an edge belongs to both, so convergence happens
-  // immediately before the box the arrows enter.
+  // immediately before the box the arrows enter. A shorter colour that would
+  // sit on that same lane then peels off onto its own clearance.
   const routes = new Map(baseline);
   applyBundles("source", edges, endpoints, baseline, routes);
   applyBundles("target", edges, endpoints, baseline, routes);
+  separateSharedColours(edges, worksById, endpoints, routes);
   return routes;
 }
 
@@ -192,6 +204,190 @@ function applyBundles(
       break;
     }
   }
+}
+
+/**
+ * Move a shorter colour off a vertical it shares with a longer one.
+ *
+ * Primary, secondary, and tertiary each have their own straight run after the
+ * source and before the target. When two colours bend on the same gutter line,
+ * the shorter one uses that run: it turns earlier on the way out, or later on
+ * the way in, so the strokes no longer stack. The longer colour keeps the
+ * gutter, and with it any same-colour trunk already bundled there.
+ */
+function separateSharedColours(
+  edges: readonly ChartEdge[],
+  worksById: ReadonlyMap<string, ChartWork>,
+  endpoints: ReadonlyMap<string, Endpoints>,
+  routes: Map<string, Point[]>,
+): void {
+  for (const members of conflictingGroups(edges, routes)) {
+    const keeperRank = Math.min(
+      ...members.map((edge) => CONNECTION_ORDER[edge.connection]),
+    );
+    const ordered = [...members].sort(
+      (a, b) => CONNECTION_ORDER[b.connection] - CONNECTION_ORDER[a.connection],
+    );
+
+    for (const edge of ordered) {
+      if (CONNECTION_ORDER[edge.connection] === keeperRank) continue;
+      const current = routes.get(edge.id) ?? [];
+      if (!sharesVerticalWithDifferentColour(edge, current, routes, edges)) {
+        continue;
+      }
+
+      const points = endpoints.get(edge.id);
+      if (!points) continue;
+      const shifted = clearanceRoute(
+        edge,
+        members,
+        points,
+        worksById,
+        edges,
+        routes,
+      );
+      if (shifted) routes.set(edge.id, shifted);
+    }
+  }
+}
+
+/** Lanes where two different colours run vertically over the same span. */
+function conflictingGroups(
+  edges: readonly ChartEdge[],
+  routes: ReadonlyMap<string, Point[]>,
+): ChartEdge[][] {
+  const byId = new Map(edges.map((edge) => [edge.id, edge]));
+  const verticals = new Map(
+    edges.map((edge) => [edge.id, verticalSegments(routes.get(edge.id) ?? [])]),
+  );
+  const lanes = new Map<number, Set<string>>();
+
+  for (let i = 0; i < edges.length; i++) {
+    for (let j = i + 1; j < edges.length; j++) {
+      const left = edges[i];
+      const right = edges[j];
+      if (left.connection === right.connection) continue;
+
+      for (const a of verticals.get(left.id) ?? []) {
+        for (const b of verticals.get(right.id) ?? []) {
+          if (a.x !== b.x || !rangesOverlap(a.top, a.bottom, b.top, b.bottom)) {
+            continue;
+          }
+          const lane = lanes.get(a.x) ?? new Set<string>();
+          lane.add(left.id);
+          lane.add(right.id);
+          lanes.set(a.x, lane);
+        }
+      }
+    }
+  }
+
+  return [...lanes.values()].map((ids) =>
+    [...ids].flatMap((id) => {
+      const edge = byId.get(id);
+      return edge ? [edge] : [];
+    }),
+  );
+}
+
+/**
+ * A straight lane on this colour's clearance. Arriving together bends just
+ * before the target; leaving together bends just after the source. The other
+ * side is the fallback when the preferred lane is blocked or still shared.
+ */
+function clearanceRoute(
+  edge: ChartEdge,
+  members: readonly ChartEdge[],
+  points: Endpoints,
+  worksById: ReadonlyMap<string, ChartWork>,
+  edges: readonly ChartEdge[],
+  routes: ReadonlyMap<string, Point[]>,
+): Point[] | undefined {
+  const arrivesTogether = members.some(
+    (other) =>
+      other.connection !== edge.connection && other.target === edge.target,
+  );
+  const sides: Array<"exit" | "entry"> = arrivesTogether
+    ? ["entry", "exit"]
+    : ["exit", "entry"];
+
+  for (const side of sides) {
+    const lane = clearanceX(edge, side, worksById);
+    if (lane === undefined) continue;
+    const route = routeThroughLane(
+      edge.source,
+      edge.target,
+      points.source,
+      points.target,
+      lane,
+      edge.connection,
+    );
+    if (!route) continue;
+    if (sharesVerticalWithDifferentColour(edge, route, routes, edges)) {
+      continue;
+    }
+    return route;
+  }
+  return undefined;
+}
+
+function clearanceX(
+  edge: ChartEdge,
+  side: "exit" | "entry",
+  worksById: ReadonlyMap<string, ChartWork>,
+): number | undefined {
+  const source = worksById.get(edge.source);
+  const target = worksById.get(edge.target);
+  if (!source || !target) return undefined;
+  const run = minRunFor(edge.connection);
+  return side === "exit" ? source.x + source.w + run : target.x - run;
+}
+
+function sharesVerticalWithDifferentColour(
+  edge: ChartEdge,
+  route: readonly Point[],
+  routes: ReadonlyMap<string, Point[]>,
+  edges: readonly ChartEdge[],
+): boolean {
+  const spans = verticalSegments(route);
+  for (const other of edges) {
+    if (other.id === edge.id || other.connection === edge.connection) continue;
+    const otherSpans = verticalSegments(routes.get(other.id) ?? []);
+    for (const a of spans) {
+      for (const b of otherSpans) {
+        if (a.x === b.x && rangesOverlap(a.top, a.bottom, b.top, b.bottom)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+type VerticalSpan = { x: number; top: number; bottom: number };
+
+function verticalSegments(points: readonly Point[]): VerticalSpan[] {
+  const spans: VerticalSpan[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    if (a.x !== b.x || a.y === b.y) continue;
+    spans.push({
+      x: a.x,
+      top: Math.min(a.y, b.y),
+      bottom: Math.max(a.y, b.y),
+    });
+  }
+  return spans;
+}
+
+function rangesOverlap(
+  a0: number,
+  a1: number,
+  b0: number,
+  b1: number,
+): boolean {
+  return Math.min(a1, b1) > Math.max(a0, b0);
 }
 
 function groupsOf(

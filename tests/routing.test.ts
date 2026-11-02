@@ -7,11 +7,7 @@ import {
   type ChartEdge,
   type ChartWork,
 } from "../src/flow/chart.ts";
-import {
-  minExitRunFor,
-  minRunFor,
-  type Point,
-} from "../src/flow/routing.ts";
+import { minExitRunFor, minRunFor, type Point } from "../src/flow/routing.ts";
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -278,5 +274,72 @@ describe("trunk bundling", () => {
       (lane ?? 0) > hand.x + hand.w,
       "The Either joins behind The Hand Elect instead of in front of it",
     );
+  });
+});
+
+describe("colour separation", () => {
+  function routeOf(edgeId: string): Point[] {
+    const route = bundledRoutes.get(edgeId);
+    assert.ok(route, `missing route ${edgeId}`);
+    return route;
+  }
+
+  function laneX(route: readonly Point[]): number | undefined {
+    return verticals(route)[0]?.x;
+  }
+
+  it("turns Betrayer's tertiary earlier than the Eightfold Path primary", () => {
+    const tertiary = routeOf("m-betrayer-inheritor");
+    const primary = routeOf("m-betrayer-the-eightfold-path");
+    const tertiaryX = laneX(tertiary);
+    const primaryX = laneX(primary);
+
+    assert.equal(sharedVerticalLane(tertiary, primary), undefined);
+    assert.ok(tertiaryX !== undefined && primaryX !== undefined);
+    assert.ok(
+      tertiaryX < primaryX,
+      `tertiary bends at ${tertiaryX}, primary at ${primaryX}`,
+    );
+  });
+
+  it("keeps Betrayer's tertiaries on one trunk", () => {
+    const inheritor = routeOf("m-betrayer-inheritor");
+    const wolves = routeOf("m-betrayer-the-ember-wolves");
+    assert.notEqual(sharedVerticalLane(inheritor, wolves), undefined);
+  });
+
+  it("turns After Desh'ea's secondary later than the primary into Betrayer", () => {
+    const secondary = routeOf("s158-after-desh-ea-betrayer");
+    const primary = routeOf("p107-butcher-s-nails-betrayer");
+    const secondaryX = laneX(secondary);
+    const primaryX = laneX(primary);
+
+    assert.equal(sharedVerticalLane(secondary, primary), undefined);
+    assert.ok(secondaryX !== undefined && primaryX !== undefined);
+    assert.ok(
+      secondaryX > primaryX,
+      `secondary bends at ${secondaryX}, primary at ${primaryX}`,
+    );
+  });
+
+  it("gives different colours no shared vertical run", () => {
+    const overlaps: string[] = [];
+    for (let i = 0; i < graph.edges.length; i++) {
+      for (let j = i + 1; j < graph.edges.length; j++) {
+        const left = graph.edges[i];
+        const right = graph.edges[j];
+        if (left.connection === right.connection) continue;
+        const lane = sharedVerticalLane(
+          bundledRoutes.get(left.id) ?? [],
+          bundledRoutes.get(right.id) ?? [],
+        );
+        if (lane !== undefined) {
+          overlaps.push(
+            `${left.connection} ${left.source} -> ${left.target} || ${right.connection} ${right.source} -> ${right.target} @ ${lane}`,
+          );
+        }
+      }
+    }
+    assert.deepEqual(overlaps, []);
   });
 });
