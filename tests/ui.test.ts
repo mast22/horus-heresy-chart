@@ -26,6 +26,7 @@ import {
   readOpeningSeen,
   SIDEBAR_ENTRANCE,
   SIDEBAR_WIDTH_FRACTION,
+  openWorkSidebar,
   toggleWorkSidebar,
   workAuthor,
 } from "../src/site/ui-state.ts";
@@ -276,6 +277,19 @@ describe("selection and sidebar", () => {
     assert.equal(closed.bookName, "");
   });
 
+  it("keeps the sidebar open when a next work is chosen", () => {
+    const open = toggleWorkSidebar(
+      closedSidebar(),
+      selectionFor(work, byId),
+    );
+    const next = openWorkSidebar(selectionFor(other, byId));
+    assert.equal(open.open, true);
+    assert.equal(next.open, true);
+    assert.equal(next.workId, other.id);
+    assert.equal(next.bookName, other.title);
+    assert.notEqual(next.workId, open.workId);
+  });
+
   it("replaces the book when a different work is clicked", () => {
     const sidebar = toggleWorkSidebar(
       toggleWorkSidebar(closedSidebar(), selectionFor(work, byId)),
@@ -399,6 +413,10 @@ describe("chart chrome", () => {
     assert.ok(flowSource.includes("sidebar.year"));
     assert.ok(flowSource.includes("sidebar.length"));
     assert.ok(flowSource.includes("sidebar.factions"));
+    assert.ok(flowSource.includes("Next to read or listen"));
+    assert.ok(flowSource.includes("handleNextWork"));
+    assert.ok(flowSource.includes("openWorkSidebar"));
+    assert.ok(css.includes(".sidebar-next"));
     assert.ok(flowSource.includes('className="sidebar-close"'));
     assert.ok(flowSource.includes("closedSidebar()"));
     assert.ok(flowSource.includes("data-entrance={sidebar.entrance}"));

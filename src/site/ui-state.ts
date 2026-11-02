@@ -80,14 +80,8 @@ export function closedSidebar(): SidebarState {
   };
 }
 
-export function toggleWorkSidebar(
-  current: SidebarState,
-  work: WorkLike,
-): SidebarState {
+function openedSidebar(work: WorkLike): SidebarState {
   const selection = workSelection(work);
-  if (current.open && current.workId === selection.id) {
-    return closedSidebar();
-  }
   return {
     open: true,
     workId: selection.id,
@@ -101,6 +95,22 @@ export function toggleWorkSidebar(
     widthFraction: SIDEBAR_WIDTH_FRACTION,
     entrance: SIDEBAR_ENTRANCE,
   };
+}
+
+export function toggleWorkSidebar(
+  current: SidebarState,
+  work: WorkLike,
+): SidebarState {
+  const selection = workSelection(work);
+  if (current.open && current.workId === selection.id) {
+    return closedSidebar();
+  }
+  return openedSidebar(selection);
+}
+
+/** Keep the panel open and replace its book. Used by the next-work list. */
+export function openWorkSidebar(work: WorkLike): SidebarState {
+  return openedSidebar(work);
 }
 
 export function initialLegend(): LegendState {

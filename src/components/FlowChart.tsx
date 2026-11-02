@@ -65,6 +65,7 @@ import {
   openingBoxes,
   openingViewport,
   openLegend,
+  openWorkSidebar,
   readOpeningSeen,
   SIDEBAR_WIDTH_FRACTION,
   toggleWorkSidebar,
@@ -739,6 +740,38 @@ const worksById = new Map(
   buildChartGraph().works.map((work) => [work.id, work]),
 );
 
+function NextWorks({
+  workId,
+  onSelect,
+}: {
+  workId: string | null;
+  onSelect: (workId: string) => void;
+}) {
+  if (!workId) {
+    return null;
+  }
+  const next = nextWorkIds(workId)
+    .map((id) => worksById.get(id))
+    .filter((work): work is ChartWork => work != null);
+  if (next.length === 0) {
+    return null;
+  }
+  return (
+    <section className="sidebar-next" aria-label="Next to read or listen">
+      <h3>Next to read or listen</h3>
+      <ul>
+        {next.map((work) => (
+          <li key={work.id}>
+            <button type="button" onClick={() => onSelect(work.id)}>
+              {displayTitle(work.title)}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** Keep the viewport inside the poster frame so panning can't lose the chart. */
 const TRANSLATE_EXTENT: [[number, number], [number, number]] = [
   [CHART_EXTENT.left, CHART_EXTENT.top],
@@ -1124,16 +1157,32 @@ export default function FlowChart() {
     setPulseSourceId(null);
   }
 
-  function handleWorkClick(workId: string) {
+  function applyWork(workId: string, keepOpen: boolean) {
     const work = worksById.get(workId);
     if (!work) {
       return;
     }
     const selection = selectionFor(work, worksById);
-    const nextSidebar = toggleWorkSidebar(sidebar, selection);
+    const nextSidebar = keepOpen
+      ? openWorkSidebar(selection)
+      : toggleWorkSidebar(sidebar, selection);
     setSidebar(nextSidebar);
-    setPulseIds(nextSidebar.open ? new Set(nextWorkIds(workId)) : new Set());
-    setPulseSourceId(nextSidebar.open ? workId : null);
+    const pulseId =
+      keepOpen && nextSidebar.workId ? nextSidebar.workId : workId;
+    setPulseIds(nextSidebar.open ? new Set(nextWorkIds(pulseId)) : new Set());
+    setPulseSourceId(nextSidebar.open ? pulseId : null);
+    if (keepOpen && nextSidebar.workId) {
+      setFocusIds([nextSidebar.workId]);
+      setFocusKey((key) => key + 1);
+    }
+  }
+
+  function handleWorkClick(workId: string) {
+    applyWork(workId, false);
+  }
+
+  function handleNextWork(workId: string) {
+    applyWork(workId, true);
   }
 
   function handleSearchSelect(ids: readonly string[]) {
@@ -1240,6 +1289,10 @@ export default function FlowChart() {
                       : "Unknown"}
                   </dd>
                 </dl>
+                <NextWorks
+                  workId={sidebar.workId}
+                  onSelect={handleNextWork}
+                />
               </>
             ) : null}
           </div>
