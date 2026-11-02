@@ -722,6 +722,8 @@ header nav a[aria-current="page"] {
 }
 
 .work-node {
+  --name-bg: #161616;
+  --name-ink: #f6f1e6;
   position: relative;
   box-sizing: border-box;
   width: 100%;
@@ -784,26 +786,64 @@ header nav a[aria-current="page"] {
 
 .work-copy {
   position: absolute;
-  left: 0;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.work-name {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  align-items: center;
   gap: 2px;
   box-sizing: border-box;
-  width: 100%;
-  padding: 4px 8px 6px;
+  width: max-content;
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px 7px 4px;
+  border-radius: 4px;
+  background: var(--name-bg);
+  color: var(--name-ink);
+  text-align: center;
 }
 
 .work-title {
+  max-width: 100%;
   font-size: 15px;
   font-weight: 700;
   line-height: 1.15;
+  overflow-wrap: break-word;
 }
 
 .work-pub {
+  max-width: 100%;
   font-size: 12px;
   font-style: italic;
   line-height: 1.15;
+  overflow-wrap: break-word;
+}
+
+.work-node.kind-audio .work-copy {
+  padding: 4px;
+}
+
+.work-node.kind-audio .work-name {
+  padding: 2px 4px 3px;
+}
+
+.work-node.kind-audio .work-title {
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+.work-node.kind-audio .work-pub {
+  font-size: 10px;
 }
 
 .work-node.kind-novel .work-title {
@@ -862,9 +902,12 @@ header nav a[aria-current="page"] {
 }
 
 .work-node.is-shortcut .work-copy {
-  align-items: center;
-  padding: 1px 2px;
-  text-align: center;
+  padding: 1px;
+}
+
+.work-node.is-shortcut .work-name {
+  padding: 0 3px;
+  border-radius: 3px;
 }
 
 .work-letters {
