@@ -407,9 +407,9 @@ const nodeTypes = {
 };
 
 const STROKE: Record<Connection, string> = {
-  primary: "#c00000",
-  secondary: "#204090",
-  tertiary: "#2f8f28",
+  primary: "var(--conn-primary)",
+  secondary: "var(--conn-secondary)",
+  tertiary: "var(--conn-tertiary)",
 };
 
 const EDGE_STYLE: Record<
@@ -577,6 +577,7 @@ function TippedEdge({
       target,
       { x: sourceX, y: sourceY },
       { x: targetX, y: targetY },
+      connection,
     );
 
   const shaftPoints = insetRoute(route, SHAFT_INSET[connection]);

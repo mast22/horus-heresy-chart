@@ -7,7 +7,11 @@ import {
   type ChartEdge,
   type ChartWork,
 } from "../src/flow/chart.ts";
-import { MIN_EXIT_RUN, MIN_RUN, type Point } from "../src/flow/routing.ts";
+import {
+  minExitRunFor,
+  minRunFor,
+  type Point,
+} from "../src/flow/routing.ts";
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -126,35 +130,35 @@ describe("routing geometry", () => {
     );
   });
 
-  it(`turns 90° at least ${MIN_RUN}px before every target`, () => {
-    const failures = routedRoutes().filter(({ route }) => {
+  it("turns 90° far enough before every target for its connection", () => {
+    const failures = routedRoutes().filter(({ edge, route }) => {
       const secondLast = route[route.length - 2];
       const last = route[route.length - 1];
-      return last.x - secondLast.x < MIN_RUN;
+      return last.x - secondLast.x < minRunFor(edge.connection);
     });
     assert.deepEqual(
       failures.map(({ edge, route }) => {
         const secondLast = route[route.length - 2];
         const last = route[route.length - 1];
-        return `${edgeName({ edge, route })}: ${last.x - secondLast.x}px`;
+        return `${edgeName({ edge, route })}: ${last.x - secondLast.x}px (need ${minRunFor(edge.connection)})`;
       }),
       [],
-      `${failures.length} entries have less than ${MIN_RUN}px of clearance`,
+      `${failures.length} entries turn closer to the target than their connection allows`,
     );
   });
 
-  it(`keeps ${MIN_EXIT_RUN}px of room for every exit bend`, () => {
-    const failures = routedRoutes().filter(({ route }) => {
+  it("keeps enough room after every source for its connection", () => {
+    const failures = routedRoutes().filter(({ edge, route }) => {
       const [first, second] = route;
-      return second.x - first.x < MIN_EXIT_RUN;
+      return second.x - first.x < minExitRunFor(edge.connection);
     });
     assert.deepEqual(
       failures.map(({ edge, route }) => {
         const [first, second] = route;
-        return `${edgeName({ edge, route })}: ${second.x - first.x}px`;
+        return `${edgeName({ edge, route })}: ${second.x - first.x}px (need ${minExitRunFor(edge.connection)})`;
       }),
       [],
-      `${failures.length} exits have less than ${MIN_EXIT_RUN}px of clearance`,
+      `${failures.length} exits turn closer to the source than their connection allows`,
     );
   });
 

@@ -130,7 +130,13 @@ function buildRoutes(): Map<string, Point[]> {
     if (!points) continue;
     baseline.set(
       edge.id,
-      routeWorkEdge(edge.source, edge.target, points.source, points.target),
+      routeWorkEdge(
+        edge.source,
+        edge.target,
+        points.source,
+        points.target,
+        edge.connection,
+      ),
     );
   }
 
@@ -172,6 +178,7 @@ function applyBundles(
               points.source,
               points.target,
               lane,
+              edge.connection,
             )
           : undefined;
       });

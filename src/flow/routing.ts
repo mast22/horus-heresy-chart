@@ -13,9 +13,11 @@
  * arrowhead and the arrow reads as broken. The router therefore keeps the trunk
  * at least `MIN_RUN` pixels clear of the source's right edge and the target's
  * left edge, and finishes with a straight, perpendicular run into the target.
+ * Secondary and tertiary links use a shorter run (60% and 30%) so their bends
+ * sit closer to the boxes and the three colours do not turn on the same line.
  */
 
-import { buildChartGraph } from "./chart.ts";
+import { buildChartGraph, type Connection } from "./chart.ts";
 
 export type Point = { x: number; y: number };
 
@@ -37,6 +39,26 @@ export const MIN_RUN = 40;
  * arrowhead, so it only needs enough room for the rounded bend.
  */
 export const MIN_EXIT_RUN = 16;
+
+/**
+ * How much of the primary straight-run each connection colour keeps. Primary
+ * stays at the full distance; secondary and tertiary turn sooner.
+ */
+export const RUN_SCALE: Record<Connection, number> = {
+  primary: 1,
+  secondary: 0.6,
+  tertiary: 0.3,
+};
+
+/** Straight run a connection must keep before it may turn into a target. */
+export function minRunFor(connection: Connection): number {
+  return MIN_RUN * RUN_SCALE[connection];
+}
+
+/** Shortest clean exit bend for a connection when the gap is tight. */
+export function minExitRunFor(connection: Connection): number {
+  return MIN_EXIT_RUN * RUN_SCALE[connection];
+}
 
 /** Small extra cost per bend so ties break toward straighter, cleaner paths. */
 const TURN_PENALTY = 0.5;
@@ -187,6 +209,7 @@ export function routeWorkEdge(
   targetId: string,
   sourcePoint: Point,
   targetPoint: Point,
+  connection: Connection = "primary",
 ): Point[] {
   const source = rectById.get(sourceId);
   const target = rectById.get(targetId);
@@ -194,14 +217,21 @@ export function routeWorkEdge(
     return [sourcePoint, targetPoint];
   }
 
+  const run = minRunFor(connection);
   const sourceRight = source.x + source.w;
-  const exitLane: Point = { x: sourceRight + MIN_RUN, y: sourcePoint.y };
-  const entryLane: Point = { x: target.x - MIN_RUN, y: targetPoint.y };
+  const exitLane: Point = { x: sourceRight + run, y: sourcePoint.y };
+  const entryLane: Point = { x: target.x - run, y: targetPoint.y };
 
   // Horizontally adjacent boxes with no room for a full 90° turn on both
   // sides get a straight two-turn path that still keeps the entry lane clear.
-  if (target.x > sourceRight && target.x - sourceRight < 2 * MIN_RUN) {
-    return tightPath(sourceRight, target.x, sourcePoint, targetPoint);
+  if (target.x > sourceRight && target.x - sourceRight < 2 * run) {
+    return tightPath(
+      sourceRight,
+      target.x,
+      sourcePoint,
+      targetPoint,
+      connection,
+    );
   }
 
   const obstacles: Rect[] = [
@@ -209,8 +239,8 @@ export function routeWorkEdge(
     // Reserve a straight exit lane to the right of the source and a straight
     // entry lane to the left of the target. The trunk runs between these two
     // bands; the straight runs themselves are appended below.
-    { x: source.x, y: source.y, w: source.w + MIN_RUN, h: source.h },
-    { x: target.x - MIN_RUN, y: target.y, w: target.w + MIN_RUN, h: target.h },
+    { x: source.x, y: source.y, w: source.w + run, h: source.h },
+    { x: target.x - run, y: target.y, w: target.w + run, h: target.h },
   ];
 
   const trunk = routeTrunk(exitLane, entryLane, obstacles);
@@ -252,14 +282,15 @@ export function routeThroughLane(
   sourcePoint: Point,
   targetPoint: Point,
   laneX: number,
+  connection: Connection = "primary",
 ): Point[] | undefined {
   const source = rectById.get(sourceId);
   const target = rectById.get(targetId);
   if (!source || !target) return undefined;
 
   const sourceRight = source.x + source.w;
-  if (laneX < sourceRight + MIN_EXIT_RUN) return undefined;
-  if (laneX > target.x - MIN_RUN) return undefined;
+  if (laneX < sourceRight + minExitRunFor(connection)) return undefined;
+  if (laneX > target.x - minRunFor(connection)) return undefined;
 
   const points: Point[] =
     sourcePoint.y === targetPoint.y
@@ -453,12 +484,16 @@ function tightPath(
   targetX: number,
   sourcePoint: Point,
   targetPoint: Point,
+  connection: Connection,
 ): Point[] {
   if (sourcePoint.y === targetPoint.y) {
     return [sourcePoint, targetPoint];
   }
   const gap = targetX - sourceRight;
-  const exitRun = Math.max(MIN_EXIT_RUN, gap - MIN_RUN);
+  const exitRun = Math.max(
+    minExitRunFor(connection),
+    gap - minRunFor(connection),
+  );
   const turnX = sourceRight + exitRun;
   return [
     sourcePoint,

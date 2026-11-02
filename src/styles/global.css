@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
   --header-size: 3rem;
-  --page-bg: #f4f1ea;
+  --page-bg: #ffffff;
   --ink: #1c1917;
   --ink-soft: #3f3a33;
   --muted: #6b645c;
@@ -15,8 +15,11 @@
   --overlay: rgba(28, 25, 23, 0.45);
   --swatch-border: rgba(28, 25, 23, 0.25);
   --node-border: #161616;
-  --zone-border: #141414;
-  --zone-fill: rgba(255, 252, 245, 0.28);
+  --zone-border: #757575;
+  --zone-fill: #f0f0f0;
+  --conn-primary: #e53935;
+  --conn-secondary: #1e88e5;
+  --conn-tertiary: #43a047;
   --zone-label-bg: #141414;
   --zone-label-ink: #f3e6b8;
   --siege-fill: rgba(244, 200, 88, 0.22);
@@ -29,7 +32,7 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page-bg: #15130f;
+  --page-bg: #1a1a1a;
   --ink: #ece6da;
   --ink-soft: #cfc7b9;
   --muted: #a49b8d;
@@ -43,8 +46,11 @@
   --overlay: rgba(0, 0, 0, 0.6);
   --swatch-border: rgba(236, 230, 218, 0.25);
   --node-border: #d9d1c3;
-  --zone-border: #6e6559;
-  --zone-fill: rgba(255, 255, 255, 0.04);
+  --zone-border: #b0b0b0;
+  --zone-fill: #2a2a2a;
+  --conn-primary: #ef5350;
+  --conn-secondary: #42a5f5;
+  --conn-tertiary: #66bb6a;
   --zone-label-bg: #e4dbc9;
   --zone-label-ink: #17140f;
   --siege-fill: rgba(244, 200, 88, 0.1);
@@ -206,6 +212,10 @@ header nav a[aria-current="page"] {
 
 .flow-root[data-framed="false"] {
   visibility: hidden;
+}
+
+.react-flow {
+  --xy-background-color: var(--page-bg);
 }
 
 .text-page {
@@ -707,14 +717,14 @@ header nav a[aria-current="page"] {
 @keyframes work-pulse {
   0% {
     box-shadow:
-      0 0 0 0 rgba(192, 0, 0, 0.9),
-      0 0 0 0 rgba(192, 0, 0, 0.6);
-    border-color: #c00000;
+      0 0 0 0 color-mix(in srgb, var(--conn-primary) 90%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--conn-primary) 60%, transparent);
+    border-color: var(--conn-primary);
   }
   100% {
     box-shadow:
-      0 0 0 30px rgba(192, 0, 0, 0),
-      0 0 0 54px rgba(192, 0, 0, 0);
+      0 0 0 30px color-mix(in srgb, var(--conn-primary) 0%, transparent),
+      0 0 0 54px color-mix(in srgb, var(--conn-primary) 0%, transparent);
     border-color: var(--node-border);
   }
 }
