@@ -626,6 +626,8 @@ describe("known connections", () => {
       ["the-chamber-at-the-end-of-memory", "the-solar-war", "secondary"],
       ["terminus", "the-lost-and-the-damned", "primary"],
       ["the-binary-succession", "the-lost-and-the-damned", "primary"],
+      ["old-earth", "the-lost-and-the-damned", "primary"],
+      ["ordo-sinister", "mortis", "primary"],
       ["the-maste-f-mankin", "the-board-is-set", "tertiary"],
       ["the-maste-f-mankin", "the-binary-succession", "primary"],
       ["bringer-of-sorrow", "saturnine", "primary"],

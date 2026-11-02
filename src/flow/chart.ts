@@ -4641,6 +4641,18 @@ export const edges: readonly ChartEdge[] = [
     connection: "primary",
   },
   {
+    id: "m-old-earth-the-lost-and-the-damned",
+    source: "old-earth",
+    target: "the-lost-and-the-damned",
+    connection: "primary",
+  },
+  {
+    id: "m-ordo-sinister-mortis",
+    source: "ordo-sinister",
+    target: "mortis",
+    connection: "primary",
+  },
+  {
     id: "p94-stratagem-deathfire",
     source: "stratagem",
     target: "deathfire",
