@@ -1,7 +1,12 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { Content } from "../copy/about.md";
 ---
 
 <BaseLayout>
-  <main class="text-page"></main>
+  <main class="text-page">
+    <article class="page-copy">
+      <Content />
+    </article>
+  </main>
 </BaseLayout>
