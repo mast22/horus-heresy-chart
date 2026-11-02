@@ -1118,6 +1118,12 @@ export default function FlowChart() {
     return () => document.removeEventListener("keydown", onKey);
   }, [dismissOpening, legend.open, seen]);
 
+  function closeSidebar() {
+    setSidebar(closedSidebar());
+    setPulseIds(new Set());
+    setPulseSourceId(null);
+  }
+
   function handleWorkClick(workId: string) {
     const work = worksById.get(workId);
     if (!work) {
@@ -1196,7 +1202,7 @@ export default function FlowChart() {
                   <button
                     type="button"
                     className="sidebar-close"
-                    onClick={() => setSidebar(closedSidebar())}
+                    onClick={closeSidebar}
                   >
                     Close
                   </button>
