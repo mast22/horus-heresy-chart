@@ -13,6 +13,7 @@ import {
   useNodesState,
   useReactFlow,
   useStoreApi,
+  ViewportPortal,
 } from "@xyflow/react";
 import {
   type CSSProperties,
@@ -27,6 +28,7 @@ import {
 import { createPortal } from "react-dom";
 import "@xyflow/react/dist/style.css";
 
+import { shortcutAnchors } from "../flow/anchors";
 import {
   chartRoutes,
   primaryBridgeGaps,
@@ -602,6 +604,8 @@ const edgeTypes = {
   tipped: TippedEdge,
 };
 
+const shortcutAnchorLines = shortcutAnchors(buildChartGraph().works);
+
 function chartNodes(): Node[] {
   const { works, zones, edges } = buildChartGraph();
   const { source, target } = computePorts(works, edges);
@@ -895,6 +899,28 @@ function ChartCanvas({
         }
       }}
     >
+      <ViewportPortal>
+        <svg
+          className="shortcut-anchors"
+          width={CHART_EXTENT.right}
+          height={CHART_EXTENT.bottom}
+          aria-hidden="true"
+        >
+          {shortcutAnchorLines.map((anchor) => (
+            <g key={anchor.id} className="shortcut-anchor">
+              {anchor.lines.map((line) => (
+                <line
+                  key={`${line.x1}-${line.y1}`}
+                  x1={line.x1}
+                  y1={line.y1}
+                  x2={line.x2}
+                  y2={line.y2}
+                />
+              ))}
+            </g>
+          ))}
+        </svg>
+      </ViewportPortal>
       <Controls
         showInteractive={chartControlConfig.showInteractivityToggle}
         orientation="vertical"
