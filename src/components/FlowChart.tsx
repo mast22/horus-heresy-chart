@@ -816,9 +816,11 @@ function ChartCanvas({
   useEffect(() => {
     setEdges((current) =>
       current.map((edge) => {
+        const connection =
+          (edge.data as TippedEdgeData | undefined)?.connection ?? "primary";
         const className =
           pulseSourceId !== null && edge.source === pulseSourceId
-            ? "is-pulsing"
+            ? `is-pulsing conn-${connection}`
             : undefined;
         return edge.className === className ? edge : { ...edge, className };
       }),

@@ -784,18 +784,30 @@ header nav a[aria-current="page"] {
   }
 }
 
-/* Opacity only: a glow or a raised z-index would paint across neighboring arrows. */
+/* Same outward bloom as the work node. The stroke stays opaque; only the glow spreads and fades. */
 .react-flow__edge.is-pulsing {
-  animation: edge-pulse 1s ease-in-out infinite;
+  --edge-pulse: var(--conn-primary);
+  animation: edge-pulse 1s ease-out infinite;
+}
+
+.react-flow__edge.is-pulsing.conn-secondary {
+  --edge-pulse: var(--conn-secondary);
+}
+
+.react-flow__edge.is-pulsing.conn-tertiary {
+  --edge-pulse: var(--conn-tertiary);
 }
 
 @keyframes edge-pulse {
-  0%,
-  100% {
-    opacity: 1;
+  0% {
+    filter:
+      drop-shadow(0 0 0 color-mix(in srgb, var(--edge-pulse) 90%, transparent))
+      drop-shadow(0 0 0 color-mix(in srgb, var(--edge-pulse) 55%, transparent));
   }
-  50% {
-    opacity: 0.62;
+  100% {
+    filter:
+      drop-shadow(0 0 12px color-mix(in srgb, var(--edge-pulse) 0%, transparent))
+      drop-shadow(0 0 22px color-mix(in srgb, var(--edge-pulse) 0%, transparent));
   }
 }
 
