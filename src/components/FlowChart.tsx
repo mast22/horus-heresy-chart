@@ -10,6 +10,7 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
+  useEdgesState,
   useNodesState,
   useReactFlow,
 } from "@xyflow/react";
@@ -474,18 +475,21 @@ function FitViewOnMount() {
 
 function ChartCanvas({
   pulseIds,
+  pulseSourceId,
   focusIds,
   focusKey,
   onWorkClick,
   onOpenLegend,
 }: {
   pulseIds: ReadonlySet<string>;
+  pulseSourceId: string | null;
   focusIds: readonly string[];
   focusKey: number;
   onWorkClick: (id: string) => void;
   onOpenLegend: () => void;
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const interactive = chartControlConfig.interactionEnabled;
   const colorMode = useColorMode();
   const { fitView } = useReactFlow();
@@ -498,6 +502,18 @@ function ChartCanvas({
       }),
     );
   }, [pulseIds, setNodes]);
+
+  useEffect(() => {
+    setEdges((current) =>
+      current.map((edge) => {
+        const className =
+          pulseSourceId !== null && edge.source === pulseSourceId
+            ? "is-pulsing"
+            : undefined;
+        return edge.className === className ? edge : { ...edge, className };
+      }),
+    );
+  }, [pulseSourceId, setEdges]);
 
   useEffect(() => {
     if (focusKey === 0 || focusIds.length === 0) {
@@ -515,7 +531,8 @@ function ChartCanvas({
     <ReactFlow
       nodes={nodes}
       onNodesChange={onNodesChange}
-      defaultEdges={initialEdges}
+      edges={edges}
+      onEdgesChange={onEdgesChange}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       fitView
@@ -556,6 +573,7 @@ export default function FlowChart() {
   const [sidebar, setSidebar] = useState(closedSidebar);
   const [legend, setLegend] = useState(initialLegend);
   const [pulseIds, setPulseIds] = useState<ReadonlySet<string>>(new Set());
+  const [pulseSourceId, setPulseSourceId] = useState<string | null>(null);
   const [focusIds, setFocusIds] = useState<readonly string[]>([]);
   const [focusKey, setFocusKey] = useState(0);
 
@@ -568,9 +586,11 @@ export default function FlowChart() {
     const nextSidebar = toggleWorkSidebar(sidebar, selection);
     setSidebar(nextSidebar);
     setPulseIds(nextSidebar.open ? new Set(nextWorkIds(workId)) : new Set());
+    setPulseSourceId(nextSidebar.open ? workId : null);
   }
 
   function handleSearchSelect(ids: readonly string[]) {
+    setPulseSourceId(null);
     setPulseIds(new Set(ids));
     setFocusIds(ids);
     setFocusKey((key) => key + 1);
@@ -589,6 +609,7 @@ export default function FlowChart() {
         <ReactFlowProvider>
           <ChartCanvas
             pulseIds={pulseIds}
+            pulseSourceId={pulseSourceId}
             focusIds={focusIds}
             focusKey={focusKey}
             onWorkClick={handleWorkClick}

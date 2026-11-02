@@ -553,6 +553,21 @@ header nav a[aria-current="page"] {
   }
 }
 
+/* Opacity only: a glow or a raised z-index would paint across neighboring arrows. */
+.react-flow__edge.is-pulsing {
+  animation: edge-pulse 1s ease-in-out infinite;
+}
+
+@keyframes edge-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+
 .work-bands {
   position: absolute;
   inset: 0;

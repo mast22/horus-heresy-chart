@@ -433,6 +433,7 @@ describe("chart chrome", () => {
     const css = read("src/styles/global.css");
     assert.ok(flowSource.includes("useNodesState"));
     assert.ok(flowSource.includes("is-pulsing"));
+    assert.ok(flowSource.includes("pulseSourceId"));
     assert.ok(flowSource.includes("nextWorkIds"));
     assert.ok(flowSource.includes("sidebar.description"));
     assert.ok(flowSource.includes('className="sidebar-description"'));
@@ -441,6 +442,8 @@ describe("chart chrome", () => {
     assert.ok(css.includes(".chart-search-results"));
     assert.ok(css.includes(".is-pulsing"));
     assert.ok(css.includes("@keyframes work-pulse"));
+    assert.ok(css.includes("@keyframes edge-pulse"));
+    assert.ok(css.includes(".react-flow__edge.is-pulsing"));
     assert.ok(css.includes(".sidebar-description"));
     assert.ok(css.includes(".sidebar-top"));
   });
