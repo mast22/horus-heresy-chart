@@ -1120,6 +1120,12 @@ export default function FlowChart() {
         } as CSSProperties
       }
     >
+      {chartReady ? null : (
+        <div className="chart-loading" role="status" aria-live="polite">
+          <span className="chart-spinner" aria-hidden="true" />
+          <span className="chart-loading-label">Loading chart</span>
+        </div>
+      )}
       <div className="chart-stage">
         <div
           className="flow-root"

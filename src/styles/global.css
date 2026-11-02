@@ -185,6 +185,7 @@ header nav a[aria-current="page"] {
 }
 
 .chart-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -193,6 +194,38 @@ header nav a[aria-current="page"] {
   inline-size: 100%;
   block-size: 100%;
   overflow: hidden;
+}
+
+.chart-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  background: var(--page-bg);
+}
+
+.chart-spinner {
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  animation: chart-spin 0.7s linear infinite;
+}
+
+.chart-loading-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@keyframes chart-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .chart-stage {
@@ -657,11 +690,11 @@ header nav a[aria-current="page"] {
   cursor: pointer;
 }
 
-/* Storyline borders sit below connections so an arrow crossing a border
-   reads as a bridge instead of being hidden by the outline. */
-.react-flow__edges {
-  z-index: 1;
-}
+/* Leave the edge and node panes without their own z-index. A z-index on
+   either pane traps every zone fill above every arrow, so strokes inside a
+   conflict, storyline, or segment disappear under the gray fill. Node and
+   edge z-index values then share one stacking context: zones stay under
+   arrows, and work boxes stay over them. */
 
 .react-flow__node-work,
 .react-flow__node-zone,
@@ -699,9 +732,7 @@ header nav a[aria-current="page"] {
   opacity: 0;
 }
 
-.react-flow__nodes {
-  z-index: 2;
-}
+
 
 .react-flow__viewport-portal,
 .shortcut-anchors {
@@ -1220,5 +1251,11 @@ header nav a[aria-current="page"] {
 
   .opening-card {
     animation: none;
+  }
+
+  .chart-spinner {
+    animation: none;
+    border-color: var(--accent);
+    border-inline-end-color: var(--line);
   }
 }
